@@ -1,0 +1,27 @@
+# pyproject.toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "expectation"
+version = "0.1.0"
+authors = [
+  { name="Jako Rostami", email="rostami.jako@gmail.com" },
+]
+description = "Python library for confidence sequences, sequential testing, e-processes, e-values, and game-theoretic probability."
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    # List your dependencies here
+    # "requests>=2.28.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/jakorostami/expectation"
+"Bug Tracker" = "https://github.com/jakorostami/expectation/issues"
