@@ -102,6 +102,7 @@ class SequentialTest:
         self.null_value = null_value
         self.quantile = quantile
         self.config = config or EValueConfig()
+        self.history = []
         
         # Validate parameters
         if self.test_type == TestType.QUANTILE and quantile is None:
@@ -242,6 +243,16 @@ class SequentialTest:
         # Update e-process
         self.e_process.update(e_value)
         
+        history_entry = {
+            'step': len(self.history) + 1,
+            'observations': new_data.tolist(),
+            'eValue': e_value,
+            'cumulativeEValue': self.e_process.cumulative_value,
+            'rejectNull': self.e_process.is_significant(),
+            'timestamp': np.datetime64('now').astype(float)
+        }
+        self.history.append(history_entry)
+        
         return SequentialTestResult(
             reject_null=self.e_process.is_significant(),
             e_value=e_value,
@@ -256,3 +267,7 @@ class SequentialTest:
         """Reset test to initial state."""
         self._reset_state()
         self.e_process = EProcess(config=self.config)
+
+    def get_history_df(self) -> pd.DataFrame:
+        """Get test history as a pandas DataFrame."""
+        return pd.DataFrame(self.history)
