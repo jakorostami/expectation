@@ -3,11 +3,15 @@ from typing import Optional, Union, List
 import numpy as np
 from pydantic import BaseModel, Field
 import pandas as pd
-from scipy import stats
 
 from expectation.modules.hypothesistesting import (
     Hypothesis, HypothesisType, EValueConfig, EProcess, 
     LikelihoodRatioEValue
+)
+
+from expectation.modules.martingales import (
+    BetaBinomialMixture, OneSidedNormalMixture, 
+    TwoSidedNormalMixture, GammaExponentialMixture
 )
 
 from expectation.modules.orderstatistics import (
@@ -132,66 +136,94 @@ class SequentialTest:
     def _setup_evaluator(self):
         """Set up appropriate e-value calculator for the test type."""
         if self.test_type == TestType.MEAN:
-            # Define densities for likelihood ratio
-            def null_density(x): 
-                return stats.norm.pdf(x, loc=self.null_value)
-            
-            def alt_density(x):
-                # Alternative based on direction
-                if self.alternative == AlternativeType.TWO_SIDED:
-                    return 0.5 * (stats.norm.pdf(x, loc=self.null_value - 1) + 
-                                stats.norm.pdf(x, loc=self.null_value + 1))
-                elif self.alternative == AlternativeType.GREATER:
-                    return stats.norm.pdf(x, loc=self.null_value + 1)
-                else:  # LESS
-                    return stats.norm.pdf(x, loc=self.null_value - 1)
-            
-            self.e_calculator = LikelihoodRatioEValue(
-                null_hypothesis=self.null_hypothesis,
-                null_density=null_density,
-                alt_density=alt_density,
-                config=self.config
+            # Using normal mixture directly
+            mixture = (TwoSidedNormalMixture if self.alternative == AlternativeType.TWO_SIDED 
+                    else OneSidedNormalMixture)(
+                v_opt=1.0,  # Can be optimized
+                alpha_opt=self.config.significance_level
             )
             
+            def calculator(data):
+                s = np.sum(data - self.null_value)
+                v = len(data)
+                return np.exp(mixture.log_superMG(s, v))
+                
+            self.e_calculator = calculator
+                
         elif self.test_type == TestType.PROPORTION:
-            def null_density(x):
-                return stats.bernoulli.pmf(x, self.null_value)
-            
-            def alt_density(x):
-                if self.alternative == AlternativeType.TWO_SIDED:
-                    p1 = max(0.1, self.null_value - 0.2)
-                    p2 = min(0.9, self.null_value + 0.2)
-                    return 0.5 * (stats.bernoulli.pmf(x, p1) + stats.bernoulli.pmf(x, p2))
-                elif self.alternative == AlternativeType.GREATER:
-                    p = min(0.9, self.null_value + 0.2)
-                    return stats.bernoulli.pmf(x, p)
-                else:  # LESS
-                    p = max(0.1, self.null_value - 0.2)
-                    return stats.bernoulli.pmf(x, p)
-            
-            self.e_calculator = LikelihoodRatioEValue(
-                null_hypothesis=self.null_hypothesis,
-                null_density=null_density,
-                alt_density=alt_density,
-                config=self.config
+            # Using beta-binomial mixture
+            mixture = BetaBinomialMixture(
+                v_opt=self.null_value * (1 - self.null_value),
+                alpha_opt=self.config.significance_level,
+                g=self.null_value,
+                h=1 - self.null_value,
+                is_one_sided=self.alternative != AlternativeType.TWO_SIDED
             )
             
+            def calculator(data):
+                s = np.sum(data - self.null_value)
+                v = len(data) * self.null_value * (1 - self.null_value)
+                return np.exp(mixture.log_superMG(s, v))
+                
+            self.e_calculator = calculator
+                
+        elif self.test_type == TestType.VARIANCE:
+            # Using gamma-exponential mixture
+            mixture = GammaExponentialMixture(
+                v_opt=self.null_value,
+                alpha_opt=self.config.significance_level,
+                c=np.sqrt(self.null_value)
+            )
+            
+            def calculator(data):
+                n = len(data)
+                centered_data = data - np.mean(data)
+                s = np.sum(centered_data**2) - self.null_value * n
+                if self.alternative == AlternativeType.TWO_SIDED:
+                    return max(np.exp(mixture.log_superMG(s, n)), 
+                            np.exp(mixture.log_superMG(-s, n)))
+                elif self.alternative == AlternativeType.LESS:
+                    return np.exp(mixture.log_superMG(-s, n))
+                else:  # GREATER
+                    return np.exp(mixture.log_superMG(s, n))
+                    
+            self.e_calculator = calculator
+                
         elif self.test_type == TestType.QUANTILE:
-            # Will be initialized with first batch of data
             self.e_calculator = None
             
         elif self.test_type == TestType.VARIANCE:
+            # Testing variance with gamma-exponential mixture
+            mixture = GammaExponentialMixture(
+                v_opt=self.null_value,  # baseline variance
+                alpha_opt=self.config.significance_level,
+                c=np.sqrt(self.null_value)  # scale parameter
+            )
+            
             def null_density(x):
-                return stats.norm.pdf(x, scale=np.sqrt(self.null_value))
+                n = len(x)
+                centered_data = x - np.mean(x)
+                s = np.sum(centered_data**2) - self.null_value * n
+                return np.exp(mixture.log_superMG(s, n))
             
             def alt_density(x):
                 if self.alternative == AlternativeType.TWO_SIDED:
-                    return 0.5 * (stats.norm.pdf(x, scale=np.sqrt(self.null_value * 0.5)) + 
-                                stats.norm.pdf(x, scale=np.sqrt(self.null_value * 2)))
+                    n = len(x)
+                    centered_data = x - np.mean(x)
+                    s_upper = np.sum(centered_data**2) - self.null_value * n
+                    s_lower = -s_upper
+                    return max(np.exp(mixture.log_superMG(s_upper, n)), 
+                            np.exp(mixture.log_superMG(s_lower, n)))
                 elif self.alternative == AlternativeType.GREATER:
-                    return stats.norm.pdf(x, scale=np.sqrt(self.null_value * 2))
+                    n = len(x)
+                    centered_data = x - np.mean(x)
+                    s = np.sum(centered_data**2) - self.null_value * n
+                    return np.exp(mixture.log_superMG(s, n))
                 else:  # LESS
-                    return stats.norm.pdf(x, scale=np.sqrt(self.null_value * 0.5))
+                    n = len(x)
+                    centered_data = x - np.mean(x)
+                    s = -(np.sum(centered_data**2) - self.null_value * n)
+                    return np.exp(mixture.log_superMG(s, n))
             
             self.e_calculator = LikelihoodRatioEValue(
                 null_hypothesis=self.null_hypothesis,
@@ -214,7 +246,6 @@ class SequentialTest:
         SequentialTestResult
             Updated test results
         """
-        # Convert input to numpy array
         new_data = np.asarray(new_data)
         
         # Update state
@@ -224,7 +255,6 @@ class SequentialTest:
         # Special handling for quantile test
         if self.test_type == TestType.QUANTILE:
             if self.e_calculator is None:
-                # Initialize quantile test with first batch
                 self.e_calculator = QuantileABTest(
                     quantile_p=self.quantile,
                     t_opt=len(new_data),
@@ -232,13 +262,10 @@ class SequentialTest:
                     arm1_os=StaticOrderStatistics(new_data),
                     arm2_os=StaticOrderStatistics([self.null_value])
                 )
-            
-            # Compute e-value using quantile test
             e_value = np.exp(-self.e_calculator.log_superMG_lower_bound())
         else:
-            # Compute e-value using likelihood ratio
-            result = self.e_calculator.test(new_data)
-            e_value = result.value
+            # Directly compute e-value using mixture calculator
+            e_value = self.e_calculator(new_data)
         
         # Update e-process
         self.e_process.update(e_value)
