@@ -144,8 +144,12 @@ class SequentialTest:
             )
             
             def calculator(data):
-                s = np.sum(data - self.null_value)
-                v = len(data)
+                # For mean test:
+                n = len(data)
+                batch_mean = np.mean(data)
+                # s should be √n * (mean - null_value) for proper scaling
+                s = np.sqrt(n) * (batch_mean - self.null_value)
+                v = 1.0  # Using standard normal scaling
                 return np.exp(mixture.log_superMG(s, v))
                 
             self.e_calculator = calculator
