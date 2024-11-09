@@ -19,10 +19,6 @@ classifiers = [
 ]
 dependencies = [
     # List your dependencies here
-    numpy>=1.22
-    pandas>=2.0.0
-    pydantic>=2.5.0
-    scipy>=1.10.0
 
 ]
 
