@@ -3,6 +3,7 @@ from typing import Optional, Union, List
 import numpy as np
 from pydantic import BaseModel, Field
 import pandas as pd
+from scipy import stats
 
 from expectation.modules.hypothesistesting import (
     Hypothesis, HypothesisType, EValueConfig, EProcess, 
