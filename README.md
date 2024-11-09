@@ -1,10 +1,10 @@
 # Expectation
 
-A Python library for sequential testing and monitoring using e-values and e-processes. Based on modern developments in game-theoretic statistics, Expectation provides valid inference at any stopping time, making it ideal for continuous monitoring and sequential analysis.
+A Python library for sequential testing and monitoring using e-values and e-processes. Based on modern developments in game-theoretic statistics, `expectation` provides valid inference at any stopping time, making it ideal for continuous monitoring and sequential analysis.
 
 ## Why use Expectation?
 
-🔄 **Truly Sequential**: Unlike traditional methods that require fixed sample sizes, Expectation lets you analyze your data as it arrives, without penalty for multiple looks.
+🔄 **Truly Sequential**: Unlike traditional methods that require fixed sample sizes, `expectation` lets you analyze your data as it arrives, without penalty for multiple looks.
 
 📊 **Always Valid**: Through the use of e-values and e-processes, your inference remains valid regardless of when you stop. Look at your data whenever you want!
 
@@ -35,7 +35,7 @@ A Python library for sequential testing and monitoring using e-values and e-proc
 
 ## Simple Demo
 
-Here's a quick example of how to use Expectation for a sequential mean test:
+Here's a quick example of how to use `expectation` for a sequential mean test:
 
 ```python
 from expectation import SequentialTest
