@@ -1,0 +1,7 @@
+# Add this to .gitignore
+dist/
+*.egg-info/
+build/
+*.pyc
+__pycache__/
+*.whl
