@@ -1,4 +1,5 @@
 # Translatend from https://github.com/gostevehoward/confseq boundaries.cpp
+# Howard, S. R., Waudby-Smith, I. and Ramdas, A. (2019-), ConfSeq: software for confidence sequences and uniform boundaries, https://github.com/gostevehoward/confseq [Online; accessed ].
 
 # Using numpy and scipy for math functions
 # Boosts special functions -> Scipy equivalents
