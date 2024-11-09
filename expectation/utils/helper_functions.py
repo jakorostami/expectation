@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict
 import pandas as pd
 
-def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize: tuple = (15, 10)):
+def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize: tuple = (15, 10), log=None):
     """
     Plot the evolution of a sequential test.
     
@@ -29,6 +29,8 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
     ax1.set_title('Individual E-values')
     ax1.set_xlabel('Step')
     ax1.set_ylabel('E-value')
+    if log:
+        ax1.set_yscale('log')
     ax1.grid(True, alpha=0.3)
     ax1.legend()
     
@@ -40,6 +42,9 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
     ax2.set_title('Cumulative E-values (E-Process)')
     ax2.set_xlabel('Step')
     ax2.set_ylabel('Cumulative E-value')
+    if log:
+        ax2.set_yscale('log')
+        
     ax2.grid(True, alpha=0.3)
     ax2.legend()
     
