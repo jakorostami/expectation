@@ -170,7 +170,8 @@ class SequentialTest:
                 return np.exp(mixture.log_superMG(s, v))
                 
             self.e_calculator = calculator
-                
+
+        # TODO: This works but is it properly done? Version 1.    
         elif self.test_type == TestType.VARIANCE:
             # Using gamma-exponential mixture
             mixture = GammaExponentialMixture(
@@ -196,45 +197,52 @@ class SequentialTest:
         elif self.test_type == TestType.QUANTILE:
             self.e_calculator = None
             
-        elif self.test_type == TestType.VARIANCE:
-            # Testing variance with gamma-exponential mixture
-            mixture = GammaExponentialMixture(
-                v_opt=self.null_value,  # baseline variance
-                alpha_opt=self.config.significance_level,
-                c=np.sqrt(self.null_value)  # scale parameter
-            )
+        # TODO: Not clear which edge cases below is preferable for. Version 1 above uses direct mixture.    
+        # elif self.test_type == TestType.VARIANCE:
+        #     # Testing variance with gamma-exponential mixture
+        #     mixture = GammaExponentialMixture(
+        #         v_opt=self.null_value,  # baseline variance
+        #         alpha_opt=self.config.significance_level,
+        #         c=np.sqrt(self.null_value)  # scale parameter
+        #     )
             
-            def null_density(x):
-                n = len(x)
-                centered_data = x - np.mean(x)
-                s = np.sum(centered_data**2) - self.null_value * n
-                return np.exp(mixture.log_superMG(s, n))
+        #     def null_density(x):
+        #         n = len(x)
+        #         centered_data = x - np.mean(x)
+        #         s = np.sum(centered_data**2) - self.null_value * n
+        #         return np.exp(mixture.log_superMG(s, n))
             
-            def alt_density(x):
-                if self.alternative == AlternativeType.TWO_SIDED:
-                    n = len(x)
-                    centered_data = x - np.mean(x)
-                    s_upper = np.sum(centered_data**2) - self.null_value * n
-                    s_lower = -s_upper
-                    return max(np.exp(mixture.log_superMG(s_upper, n)), 
-                            np.exp(mixture.log_superMG(s_lower, n)))
-                elif self.alternative == AlternativeType.GREATER:
-                    n = len(x)
-                    centered_data = x - np.mean(x)
-                    s = np.sum(centered_data**2) - self.null_value * n
-                    return np.exp(mixture.log_superMG(s, n))
-                else:  # LESS
-                    n = len(x)
-                    centered_data = x - np.mean(x)
-                    s = -(np.sum(centered_data**2) - self.null_value * n)
-                    return np.exp(mixture.log_superMG(s, n))
+        #     def alt_density(x):
+        #         if self.alternative == AlternativeType.TWO_SIDED:
+        #             n = len(x)
+        #             centered_data = x - np.mean(x)
+        #             s_upper = np.sum(centered_data**2) - self.null_value * n
+        #             s_lower = -s_upper
+        #             return max(np.exp(mixture.log_superMG(s_upper, n)), 
+        #                     np.exp(mixture.log_superMG(s_lower, n)))
+        #         elif self.alternative == AlternativeType.GREATER:
+        #             n = len(x)
+        #             centered_data = x - np.mean(x)
+        #             s = np.sum(centered_data**2) - self.null_value * n
+        #             return np.exp(mixture.log_superMG(s, n))
+        #         else:  # LESS
+        #             n = len(x)
+        #             centered_data = x - np.mean(x)
+        #             s = -(np.sum(centered_data**2) - self.null_value * n)
+        #             return np.exp(mixture.log_superMG(s, n))
             
-            self.e_calculator = LikelihoodRatioEValue(
-                null_hypothesis=self.null_hypothesis,
-                null_density=null_density,
-                alt_density=alt_density,
-                config=self.config
-            )
+        #     evaluator = LikelihoodRatioEValue(
+        #         null_hypothesis=self.null_hypothesis,
+        #         null_density=null_density,
+        #         alt_density=alt_density,
+        #         config=self.config
+        #     )
+
+        #     def calculator(data):
+        #         result = evaluator.test(data)
+        #         return result.value
+            
+        #     self.e_calculator = calculator
     
     def update(self, new_data: Union[List, np.ndarray, pd.Series]) -> SequentialTestResult:
         """
