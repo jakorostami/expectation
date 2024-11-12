@@ -54,7 +54,6 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
                      history_df['observations'].apply(len))
     
     ax3.scatter(steps, observations, color='orange', alpha=0.6, label='Observations')
-    ax3.axhline(y=0, color='gray', linestyle='--', alpha=0.5, label='Null Value')
     ax3.set_title('Raw Observations')
     ax3.set_xlabel('Step')
     ax3.set_ylabel('Value')
