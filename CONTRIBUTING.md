@@ -1,135 +1,129 @@
-# Contributing to expectation
+# Welcome to expectation! 🎲
 
-First off, thank you for considering contributing to expectation! It's people like you that help make expectation a great tool for statistical analysis and sequential testing.
+Hey there! Thanks for your interest in making expectation even better. Whether you're fixing a tiny bug or adding a whole new statistical method, we're excited to have you here! 
 
-## Code of Conduct
+## How We Build Together 🛠️
 
-By participating in this project, you are expected to uphold our Code of Conduct (see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)).
+### First Time Contributing?
 
-## License
+Awesome! Here's how to get started:
 
-By contributing to expectation, you agree that your contributions will be licensed under the GPL-3.0 License. See [LICENSE](LICENSE) for full details.
-
-## How Can I Contribute?
-
-### Reporting Bugs
-
-Before creating bug reports, please check the existing issues as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
-
-* Use a clear and descriptive title
-* Describe the exact steps which reproduce the problem
-* Provide specific examples to demonstrate the steps
-* Describe the behavior you observed after following the steps
-* Explain which behavior you expected to see instead and why
-* Include screenshots or animated GIFs if possible
-* Include your environment details (OS, Python version, package versions)
-
-### Suggesting Enhancements
-
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
-
-* A clear and descriptive title
-* A detailed description of the proposed enhancement
-* Examples of how the enhancement would be used
-* If applicable, mathematical foundations or references
-
-### Pull Requests
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Make your changes
-4. Run the test suite and ensure all tests pass
-5. Update documentation if needed
-6. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-7. Push to the branch (`git push origin feature/AmazingFeature`)
-8. Open a Pull Request
-
-
-### Development Setup
-
-1. Clone your fork of the repository:
+1. **Fork & Clone**
 ```bash
 git clone https://github.com/YOUR_USERNAME/expectation.git
 cd expectation
 ```
 
-2. Create and activate a virtual environment (recommended):
+2. **Set Up Your Environment**
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
-```
-
-3. Install the package in editable mode with required dependencies:
-```bash
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
-```
-
-4. Install development tools:
-```bash
 pip install pytest pytest-cov black isort mypy pre-commit
-```
-
-5. Set up pre-commit hooks:
-```bash
 pre-commit install
 ```
 
-## Styleguides
+### Making Changes 📝
 
-### Git Commit Messages
+1. **Create a Branch**
+```bash
+git checkout -b your-cool-feature
+```
 
-* Use the present tense ("Add feature" not "Added feature")
-* Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-* Limit the first line to 72 characters or less
-* Reference issues and pull requests liberally after the first line
+2. **Write Some Code**
+- Add your awesome changes
+- Write tests for your new code
+- Make sure existing tests still pass
+- Update docs if needed
 
-### Python Styleguide
+3. **Commit Your Changes**
+```bash
+git add .
+git commit -m "Add some awesome feature"
+```
 
-* Follow PEP 8 guidelines
-* Use type hints for function arguments and return values
-* Document functions and classes using NumPy docstring format
-* Include doctest examples where appropriate
-* Use descriptive variable names that reflect statistical/mathematical concepts
+4. **Push & Create a Pull Request**
+```bash
+git push origin your-cool-feature
+```
+Then head to GitHub and create a Pull Request!
 
-### Documentation Styleguide
+## Types of Contributions 🌟
 
-* Use Markdown for documentation
-* Include mathematical notation using LaTeX when necessary
-* Provide examples for new features
-* Reference academic papers or resources when introducing statistical concepts
+### 🐛 Found a Bug?
+- Check if it's already reported in Issues
+- If not, create a new issue with a clear description
+- Even better: Submit a pull request with a fix!
 
-### Testing
+### 💡 Have an Idea?
+- Share it in Issues!
+- Let's discuss how to make it happen
+- Feel free to start working on it if you're excited
 
-* Write tests for new features using pytest
-* Ensure all tests pass before submitting a pull request
-* Include tests for edge cases and error conditions
-* For statistical functions, include tests with known distributions and outcomes
+### 📚 Documentation
+- Found something confusing?
+- Have a good example to share?
+- Know how to explain something better?
+- Documentation improvements are always welcome!
 
-## Mathematical Contributions
+## Best Practices 🎯
 
-When contributing new statistical methods or algorithms:
+### Code Style
+- We use Black for formatting
+- Type hints are awesome
+- Clear variable names make everyone happy
+- Comments explain the "why", code shows the "how"
 
-* Include references to relevant papers or textbooks
-* Provide mathematical proofs or justifications where appropriate
-* Include simulation studies demonstrating correctness
-* Document assumptions and limitations
-* Add appropriate test cases with known theoretical results
+### Tests
+- Write tests for new features
+- Run `pytest` to check everything works
+- Try to add examples that can be used in documentation
 
-## Additional Notes
+### Documentation
+- Update docstrings with NumPy style
+- Add examples where helpful
+- Include mathematical notation when needed
+- Share your thought process!
 
-### Issue and Pull Request Labels
+## Review Process 👀
 
-* `bug`: Something isn't working
-* `enhancement`: New feature or request
-* `documentation`: Documentation only changes
-* `good first issue`: Good for newcomers
-* `help wanted`: Extra attention is needed
-* `math`: Involves mathematical theory or proofs
-* `optimization`: Performance improvements
-* `tests`: Adding or modifying tests
+1. Maintainers will review your PR
+2. They might suggest some changes
+3. Be patient - we're all doing this in our free time
+4. We'll work together to get your contribution merged
 
-## Questions?
+## Need Help? 🤝
 
-Feel free to open an issue with any questions about contributing. We're here to help!
+- Got stuck? Create an issue and ask!
+- Not sure how to start? We'll guide you!
+- Found something confusing? Let's make it clearer!
 
-Thank you for contributing to expectation!
+## Statistical Contributions 📊
+
+When adding new statistical methods:
+- Reference papers/books if applicable
+- Explain the intuition behind the method
+- Add examples with known results
+- Include edge cases in tests
+- Document assumptions clearly
+
+## Recognition ⭐
+
+All contributors are valued members of our community! Your name will be automatically added to the project's GitHub contributors.
+
+## Keep in Mind 🌱
+
+- Be patient and kind
+- Ask questions when unsure
+- Help others learn
+- Have fun building together!
+
+## Thank You! 🙏
+
+Every contribution makes expectation better. We're grateful you're here!
+
+Happy coding! 🎲📊✨
+
+---
+
+*Remember: This is a friendly community project. Let's keep it fun and help each other learn and grow!*
