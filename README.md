@@ -33,6 +33,19 @@ A Python library for sequential testing and monitoring using e-values and e-proc
 - Implement automated decision rules based on sequential data
 - Create robust testing pipelines
 
+## Installing expectation 🎲
+
+Getting started with `expectation` is easy! Here's how to set up the library for your statistical adventures.
+
+### From Source 📦
+
+If you want the latest development version:
+```bash
+git clone https://github.com/jakorostami/expectation.git
+cd expectation
+pip install -e .
+```
+
 ## Simple Demo
 
 Here's a quick example of how to use `expectation` for a sequential mean test:
