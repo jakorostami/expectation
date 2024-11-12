@@ -82,3 +82,11 @@ Key features demonstrated:
 5. Clear rejection decisions
 
 The test controls Type I error at level α (default 0.05) at ANY stopping time. No need to specify sample sizes in advance or adjust for multiple looks at the data!
+
+## Contributing 🤝
+
+We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes `expectation` better for everyone.
+
+Check out our [Contributing Guide](CONTRIBUTING.md) to get started, and join our friendly community. No contribution is too small, and all contributors are valued!
+
+Want to help but not sure how? See our [Issues](https://github.com/jakorostami/expectation/issues) or start a [Discussion](https://github.com/jakorostami/expectation/discussions). We're happy to guide you! 🎲✨
