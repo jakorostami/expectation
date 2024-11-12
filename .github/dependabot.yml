@@ -1,0 +1,51 @@
+# To get started with Dependabot version updates, you'll need to specify which
+# package ecosystems to update and where the package manifests are located.
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Check for updates to Python packages
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Stockholm"
+
+    # Raise pull requests for version updates
+    open-pull-requests-limit: 10
+
+    # Labels on pull requests
+    labels:
+      - "dependencies"
+      - "python"
+
+    # Assign reviewers
+    reviewers:
+      - "jakorostami"
+
+    # Allow up-to-date branches to be rebased
+    rebase-strategy: "auto"
+
+    # Ignore certain dependencies (optional)
+    # ignore:
+    #   - dependency-name: "scipy"
+    #     versions: ["0.x"]
+
+  # Check for updates to GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Stockholm"
+
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+    reviewers:
+      - "jakorostami"
