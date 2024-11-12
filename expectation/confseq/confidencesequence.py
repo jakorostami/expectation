@@ -8,7 +8,7 @@ from expectation.confseq.confidenceconfig import (BoundaryType,
                                                   EstimandType, 
                                                   ConfidenceSequenceConfig, 
                                                   EmpiricalBernsteinConfig)
-
+# Source for this implementation: "Time-uniform, nonparametric, nonasymptotic confidence sequences" - https://arxiv.org/pdf/1810.08240
 class ConfidenceSequenceState(BaseModel):
     """Current state of confidence sequence."""
     n_samples: int = Field(default=0, ge=0)
