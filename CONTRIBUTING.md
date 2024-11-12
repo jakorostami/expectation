@@ -107,6 +107,14 @@ When adding new statistical methods:
 - Include edge cases in tests
 - Document assumptions clearly
 
+It is the work of the following people this library is focused around so it is wise to read their research: <br>
+[Aaditya Ramdas](https://www.stat.cmu.edu/~aramdas/) <br>
+[Vladimir Vovk](https://www.vovk.net) <br>
+[Peter Grünwald](https://safestatistics.com) <br>
+[Glenn Shafer](http://glennshafer.com) <br>
+[Ruodu Wang](https://sas.uwaterloo.ca/~wang/) <br>
+[Hongjian Wang](https://wanghongjian.wordpress.com) <br>
+
 ## Recognition ⭐
 
 All contributors are valued members of our community! Your name will be automatically added to the project's GitHub contributors.
