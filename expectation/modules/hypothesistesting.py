@@ -1,3 +1,11 @@
+"""
+Based on these papers:
+
+Hypothesis testing with e-values, A. Ramdas, R. Wang (2024) - https://arxiv.org/pdf/2410.23614
+
+Safe Testing, P. Grünwald, R. de Heide, W.M Koolen (2019) - https://arxiv.org/pdf/1906.07801
+"""
+
 from typing import Optional, Callable, Sequence, ClassVar
 from abc import ABC, abstractmethod
 import numpy as np

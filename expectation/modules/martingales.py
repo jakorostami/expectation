@@ -1,3 +1,14 @@
+"""
+Based on these papers:
+
+Time-uniform, nonparametric, nonasymptotic confidence sequences, S.R Howard, A. Ramdas, J. McAuliffe, J. Sekhon (2022) - https://arxiv.org/pdf/1810.08240
+
+Merging sequential e-values via martingales, V. Vovk, R. Wang (2024) - https://arxiv.org/pdf/2007.06382
+
+Time-uniform central limit theory and asymptotic confidence sequences, I. Waudby-Smith, D. Arbour, R. Sinha, E.H Kennedy, A. Ramdas (2021) - https://arxiv.org/pdf/2103.06476
+"""
+
+
 import numpy as np
 from scipy import special, optimize, stats
 from abc import ABC, abstractmethod
