@@ -12,42 +12,84 @@ from typing import Optional, List, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
 
+from expectation.modules.martingales import (
+    BetaBinomialMixture, OneSidedNormalMixture, 
+    TwoSidedNormalMixture, GammaExponentialMixture
+)
+
 class ConformalEValue:
     """
-    Implementation of conformal e-values as defined in Section 2 of the paper.
-    Handles the computation of nonconformity e-scores and conformal e-values.
+    Implementation of conformal e-values using proper nonconformity e-measures
+    as defined in the paper. Uses existing mixture martingales for e-value computation.
     """
     def __init__(self, 
-                 nonconformity_measure: Optional[callable] = None,
+                 nonconformity_type: str = "normal",
+                 v_opt: float = 1.0,
+                 alpha_opt: float = 0.05,
                  allow_infinite: bool = False):
         """
         Initialize conformal e-value calculator.
         
         Args:
-            nonconformity_measure: Optional custom nonconformity measure.
-                If None, uses default based on likelihood ratios.
-            allow_infinite: Whether to allow infinite e-values.
+            nonconformity_type: Type of nonconformity measure 
+                ("normal", "beta_binomial", "gamma_exponential")
+            v_opt: Optimal variance parameter
+            alpha_opt: Optimal significance level
+            allow_infinite: Whether to allow infinite e-values
         """
-        self._nonconformity_measure = nonconformity_measure
         self.allow_infinite = allow_infinite
-        self._scores: List[float] = []
+        
+        # Initialize appropriate mixture martingale
+        if nonconformity_type == "normal":
+            self.mixture = OneSidedNormalMixture(v_opt, alpha_opt)
+        elif nonconformity_type == "beta_binomial":
+            self.mixture = BetaBinomialMixture(
+                v_opt, alpha_opt, 0.5, 0.5, True
+            )
+        elif nonconformity_type == "gamma_exponential":
+            self.mixture = GammaExponentialMixture(v_opt, alpha_opt, 1.0)
+        else:
+            raise ValueError(f"Unknown nonconformity type: {nonconformity_type}")
+            
+        self.reset()
+    
+    def reset(self):
+        """
+        
+        Reset internal state.
+        
+        """
+        self._scores = []
         self._n_samples = 0
         
-    def compute_nonconformity_scores(self, data: ArrayLike) -> np.ndarray:
+    def compute_nonconformity_score(self, data: ArrayLike) -> float:
         """
-        Compute nonconformity e-scores for given data.
-        Ensures sum of scores <= 1 (admissibility condition).
+        Compute nonconformity score for new data using mixture martingale.
+        
+        Args:
+            data: New observations
+            
+        Returns:
+            Nonconformity e-score
         """
         data = np.asarray(data)
-        if self._nonconformity_measure is not None:
-            scores = self._nonconformity_measure(data)
+        if len(self._scores) == 0:
+            # First batch - use standard scoring
+            s = np.mean(data) * np.sqrt(len(data))
+            v = 1.0
         else:
-            # Default measure based on empirical distribution
-            scores = np.abs(data - np.median(data))
+            # Subsequent batches - use running statistics
+            current_mean = np.mean(self._scores)
+            s = (np.mean(data) - current_mean) * np.sqrt(len(data))
+            v = np.var(self._scores) if len(self._scores) > 1 else 1.0
+            
+        # Compute e-score using mixture
+        e_score = np.exp(self.mixture.log_superMG(s, v))
         
-        # Normalize to ensure admissibility (sum <= 1)
-        scores = scores / (np.sum(scores) + 1e-10)
-        return scores
+        if not self.allow_infinite and np.isinf(e_score):
+            raise ValueError("Infinite e-value detected and not allowed")
+            
+        return e_score
         
     def update(self, new_data: ArrayLike) -> float:
         """
@@ -60,43 +102,24 @@ class ConformalEValue:
             Conformal e-value for the new observations
         """
         new_data = np.asarray(new_data)
-        n_new = len(new_data)
         
-        # Compute nonconformity scores including new data
-        all_data = np.concatenate([self._scores, new_data]) if self._scores else new_data
-        scores = self.compute_nonconformity_scores(all_data)
+        # Compute nonconformity score
+        e_value = self.compute_nonconformity_score(new_data)
         
-        # Get e-value for new observations
-        e_value = scores[-n_new:].mean()
+        # Update state
+        self._scores.extend(new_data.tolist())
+        self._n_samples += len(new_data)
         
-        # Store scores and update count
-        self._scores = scores.tolist()
-        self._n_samples += n_new
-        
-        if not self.allow_infinite and np.isinf(e_value):
-            raise ValueError("Infinite e-value detected and not allowed")
-            
         return e_value
-        
-    def reset(self):
-        """
-        Reset internal state.
-        """
-        self._scores = []
-        self._n_samples = 0
-        
-    @property 
+    
+    @property
     def n_samples(self) -> int:
         """
+        
         Number of samples processed.
+        
         """
         return self._n_samples
-
-    def is_admissible(self) -> bool:
-        """
-        Check if current state satisfies admissibility condition.
-        """
-        return np.sum(self._scores) <= 1.0
     
 
 class ConformalEPseudomartingale:
