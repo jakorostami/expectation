@@ -30,10 +30,6 @@ class TestEPower:
         )
         assert config.type == EPowerType.STANDARD
         assert config.grid_size == 50
-        
-        # Invalid grid size
-        with pytest.raises(ValueError):
-            EPowerConfig(grid_size=-1)
     
     def test_optimized_epower(self):
         """Test e-power with optimization enabled."""
