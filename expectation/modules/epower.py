@@ -1,6 +1,4 @@
-# epower.py
-
-from dataclasses import dataclass
+from dataclasses import dataclass # TODO: use for now but remove later
 import numpy as np
 from typing import Optional, Union
 from pydantic import BaseModel, Field
