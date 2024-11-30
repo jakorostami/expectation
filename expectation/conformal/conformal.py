@@ -8,7 +8,7 @@ https://www.alrw.net/articles/29.pdf
 """
 
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Callable, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -19,11 +19,12 @@ from expectation.modules.martingales import (
 
 class ConformalEValue:
     """
-    Implementation of conformal e-values using proper nonconformity e-measures
-    as defined in the paper. Uses existing mixture martingales for e-value computation.
+    Implementation of conformal e-values using proper nonconformity e-measures.
+    Fixed to properly handle scaling and normalization.
     """
     def __init__(self, 
                  nonconformity_type: str = "normal",
+                 is_one_sided: bool = True,
                  v_opt: float = 1.0,
                  alpha_opt: float = 0.05,
                  allow_infinite: bool = False):
@@ -32,24 +33,21 @@ class ConformalEValue:
         
         Args:
             nonconformity_type: Type of nonconformity measure 
-                ("normal", "beta_binomial", "gamma_exponential")
+            is_one_sided: Whether to use one-sided or two-sided test
             v_opt: Optimal variance parameter
             alpha_opt: Optimal significance level
             allow_infinite: Whether to allow infinite e-values
         """
         self.allow_infinite = allow_infinite
+        self.v_opt = v_opt
+        self.alpha_opt = alpha_opt
         
-        # Initialize appropriate mixture martingale
+        # Initialize mixture martingale
         if nonconformity_type == "normal":
-            self.mixture = OneSidedNormalMixture(v_opt, alpha_opt)
-        elif nonconformity_type == "beta_binomial":
-            self.mixture = BetaBinomialMixture(
-                v_opt, alpha_opt, 0.5, 0.5, True
-            )
-        elif nonconformity_type == "gamma_exponential":
-            self.mixture = GammaExponentialMixture(v_opt, alpha_opt, 1.0)
+            self.mixture = (OneSidedNormalMixture if is_one_sided 
+                          else TwoSidedNormalMixture)(v_opt, alpha_opt)
         else:
-            raise ValueError(f"Unknown nonconformity type: {nonconformity_type}")
+            raise ValueError(f"Unsupported nonconformity type: {nonconformity_type}")
             
         self.reset()
     
@@ -59,12 +57,29 @@ class ConformalEValue:
         Reset internal state.
         
         """
-        self._scores = []
+        self._data: List[float] = []
+        self._running_mean = 0.0
+        self._running_var = 1.0
         self._n_samples = 0
         
-    def compute_nonconformity_score(self, data: ArrayLike) -> float:
+    def _update_statistics(self, new_data: np.ndarray):
         """
-        Compute nonconformity score for new data using mixture martingale.
+        
+        Update running statistics using Welford's online algorithm.
+        
+        """
+        for x in new_data:
+            self._n_samples += 1
+            delta = x - self._running_mean
+            self._running_mean += delta / self._n_samples
+            if self._n_samples > 1:
+                delta2 = x - self._running_mean
+                self._running_var = ((self._n_samples - 2) * self._running_var + 
+                                   delta * delta2) / (self._n_samples - 1)
+    
+    def compute_nonconformity_score(self, data: np.ndarray) -> float:
+        """
+        Compute nonconformity score for new data.
         
         Args:
             data: New observations
@@ -72,19 +87,22 @@ class ConformalEValue:
         Returns:
             Nonconformity e-score
         """
-        data = np.asarray(data)
-        if len(self._scores) == 0:
-            # First batch - use standard scoring
-            s = np.mean(data) * np.sqrt(len(data))
-            v = 1.0
+        batch_size = len(data)
+        
+        if self._n_samples == 0:
+            # First batch
+            s = np.sqrt(batch_size) * np.mean(data)
+            v = self.v_opt
         else:
-            # Subsequent batches - use running statistics
-            current_mean = np.mean(self._scores)
-            s = (np.mean(data) - current_mean) * np.sqrt(len(data))
-            v = np.var(self._scores) if len(self._scores) > 1 else 1.0
-            
+            # Compute standardized difference
+            batch_mean = np.mean(data)
+            s = np.sqrt(batch_size) * (batch_mean - self._running_mean) 
+            s /= np.sqrt(self._running_var + 1e-8)  # Add small constant for stability
+            v = self.v_opt * (1 + 1/np.sqrt(self._n_samples))
+        
         # Compute e-score using mixture
-        e_score = np.exp(self.mixture.log_superMG(s, v))
+        log_e_score = self.mixture.log_superMG(s, v)
+        e_score = np.exp(log_e_score)
         
         if not self.allow_infinite and np.isinf(e_score):
             raise ValueError("Infinite e-value detected and not allowed")
@@ -103,12 +121,11 @@ class ConformalEValue:
         """
         new_data = np.asarray(new_data)
         
-        # Compute nonconformity score
+        # Compute e-value before updating statistics
         e_value = self.compute_nonconformity_score(new_data)
         
-        # Update state
-        self._scores.extend(new_data.tolist())
-        self._n_samples += len(new_data)
+        # Update running statistics
+        self._update_statistics(new_data)
         
         return e_value
     
