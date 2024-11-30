@@ -21,6 +21,8 @@ from expectation.modules.quantiletest import (
     QuantileABTest
 )
 
+from expectation.modules.epower import EPowerCalculator, EPowerConfig, EPowerType
+
 class TestType(str, Enum):
     """Types of sequential tests available."""
     MEAN = "mean"
@@ -45,6 +47,9 @@ class SequentialTestResult(BaseModel):
     test_type: TestType
     alternative: AlternativeType
     timestamp: float = Field(default_factory=lambda: np.datetime64('now').astype(float))
+    e_power: Optional[float] = None
+    e_power_is_positive: Optional[bool] = None
+    optimal_lambda: Optional[float] = None
     
     class Config:
         arbitrary_types_allowed = True
@@ -83,7 +88,8 @@ class SequentialTest:
         null_value: float,
         alternative: Union[AlternativeType, str] = "two_sided",
         quantile: Optional[float] = None,
-        config: Optional[EValueConfig] = None
+        config: Optional[EValueConfig] = None,
+        e_power_config: Optional[EPowerConfig] = None
     ):
         """
         Initialize sequential test.
@@ -107,6 +113,8 @@ class SequentialTest:
         self.quantile = quantile
         self.config = config or EValueConfig()
         self.history = []
+        self.e_power_calculator = EPowerCalculator(e_power_config)
+        self.e_values_history = []
         
         # Validate parameters
         if self.test_type == TestType.QUANTILE and quantile is None:
@@ -281,14 +289,27 @@ class SequentialTest:
         
         # Update e-process
         self.e_process.update(e_value)
+    
         
+                # Store e-value in history
+        self.e_values_history.append(e_value)
+
+        # Compute e-power if we have enough data
+        e_power_result = None
+        if len(self.e_values_history) > 1:
+            e_power_result = self.e_power_calculator.compute(
+                np.array(self.e_values_history)
+            )
+
         history_entry = {
             'step': len(self.history) + 1,
             'observations': new_data.tolist(),
             'eValue': e_value,
+            'ePower': e_power_result.e_power if e_power_result else None,
             'cumulativeEValue': self.e_process.cumulative_value,
             'rejectNull': self.e_process.is_significant(),
-            'timestamp': np.datetime64('now').astype(float)
+            'timestamp': np.datetime64('now').astype(float),
+            'pValue': 1/self.e_process.cumulative_value if self.e_process.cumulative_value > 1 else 1.0
         }
         self.history.append(history_entry)
         
@@ -299,7 +320,10 @@ class SequentialTest:
             sample_size=self.n_samples,
             p_value=1/self.e_process.cumulative_value if self.e_process.cumulative_value > 1 else 1.0,
             test_type=self.test_type,
-            alternative=self.alternative
+            alternative=self.alternative,
+            e_power=e_power_result.e_power if e_power_result else None,
+            e_power_is_positive=e_power_result.is_positive if e_power_result else None,
+            optimal_lambda=e_power_result.optimal_lambda if e_power_result else None
         )
     
     def reset(self):

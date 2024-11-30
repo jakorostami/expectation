@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import numpy as np
 from typing import List, Dict
 import pandas as pd
@@ -20,7 +21,7 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
     figsize : tuple
         Figure size (width, height)
     """
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=figsize)
+    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=figsize)
     
     # Plot 1: Individual e-values
     ax1.plot(history_df['step'], history_df['eValue'], 
@@ -47,21 +48,42 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
         
     ax2.grid(True, alpha=0.3)
     ax2.legend()
+
+    # epower
+    ax3.plot(history_df['step'], 100 * history_df["ePower"].fillna(0), 
+            marker='o', linestyle='-', color='green', label='E-power')
+    ax3.set_title('E-power (growth rate)')
+    ax3.set_xlabel('Step')
+    ax3.set_ylabel('E-power')
+    ax3.grid(True, alpha=0.3)
+    ax3.yaxis.set_major_formatter(mtick.PercentFormatter())
+
+    # pvalues
+    ax4.plot(history_df['step'], 100 * history_df["pValue"], 
+            marker='o', linestyle='-', color='purple', label='p-value')
+    ax4.axhline(y=alpha * 100, color='red', linestyle='--', 
+                alpha=0.5, label=f'Rejection Boundary (α = {alpha})')
+    ax4.set_title('p-values (converted from e-values)')
+    ax4.set_xlabel('Step')
+    ax4.set_ylabel('p-value')
+    ax4.grid(True, alpha=0.3)
+    ax4.set_ylim(-10, 100)
+    ax4.yaxis.set_major_formatter(mtick.PercentFormatter())
     
     # Plot 3: Raw observations
     observations = np.concatenate(history_df['observations'].values)
     steps = np.repeat(history_df['step'], 
                      history_df['observations'].apply(len))
     
-    ax3.scatter(steps, observations, color='orange', alpha=0.6, label='Observations')
-    ax3.set_title('Raw Observations')
-    ax3.set_xlabel('Step')
-    ax3.set_ylabel('Value')
-    ax3.grid(True, alpha=0.3)
-    ax3.legend()
+    ax5.scatter(steps, observations, color='orange', alpha=0.6, label='Observations')
+    ax5.set_title('Raw Observations')
+    ax5.set_xlabel('Step')
+    ax5.set_ylabel('Value')
+    ax5.grid(True, alpha=0.3)
+    ax5.legend()
     
     plt.tight_layout()
-    return fig, (ax1, ax2, ax3)
+    return fig, (ax1, ax2, ax3, ax4, ax5)
 
 # Example usage
 if __name__ == "__main__":
