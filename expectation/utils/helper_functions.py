@@ -67,6 +67,7 @@ def plot_sequential_test(history_df: pd.DataFrame, alpha: float = 0.05, figsize:
     ax4.set_xlabel('Step')
     ax4.set_ylabel('p-value')
     ax4.grid(True, alpha=0.3)
+    ax4.set_ylim(-10, 100)
     ax4.yaxis.set_major_formatter(mtick.PercentFormatter())
     
     # Plot 3: Raw observations
