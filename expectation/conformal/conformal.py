@@ -79,17 +79,23 @@ class ConformalEValue:
         return e_value
         
     def reset(self):
-        """Reset internal state."""
+        """
+        Reset internal state.
+        """
         self._scores = []
         self._n_samples = 0
         
     @property 
     def n_samples(self) -> int:
-        """Number of samples processed."""
+        """
+        Number of samples processed.
+        """
         return self._n_samples
 
     def is_admissible(self) -> bool:
-        """Check if current state satisfies admissibility condition."""
+        """
+        Check if current state satisfies admissibility condition.
+        """
         return np.sum(self._scores) <= 1.0
     
 
@@ -159,17 +165,23 @@ class ConformalEPseudomartingale:
     
     @property
     def capital(self) -> float:
-        """Current capital Sₙ."""
+        """
+        Current capital S_n.
+        """
         return self._capital
     
     @property
     def max_capital(self) -> float:
-        """Maximum capital achieved S*_∞."""
+        """
+        Maximum capital achieved S*_inf
+        """
         return self._max_capital
     
     @property
     def n_steps(self) -> int:
-        """Number of updates performed."""
+        """
+        Number of updates performed.
+        """
         return len(self._e_values)
     
     def get_history(self) -> Tuple[np.ndarray, np.ndarray]:

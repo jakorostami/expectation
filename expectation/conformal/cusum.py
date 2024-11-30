@@ -14,7 +14,9 @@ from dataclasses import dataclass
 
 @dataclass
 class CUSUMResult:
-    """Results from CUSUM procedure."""
+    """
+    Results from CUSUM procedure.
+    """
     statistic: float  # Current CUSUM statistic
     alarms: List[int]  # Time points of alarms
     alarm_stats: List[float]  # CUSUM statistics at alarm points
@@ -51,7 +53,9 @@ class ConformalCUSUM:
         self.reset()
     
     def reset(self):
-        """Reset detector state."""
+        """
+        Reset detector state.
+        """
         self._last_alarm = 0  # Time of last alarm
         self._cusum_stat = 0.0  # Current CUSUM statistic
         self._stats_history = []  # History of statistics
