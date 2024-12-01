@@ -3,6 +3,11 @@ import numpy as np
 from expectation.conformal.adaptivethreshold import AdaptiveThresholdHandler
 
 
+@pytest.fixture
+def sample_data():
+    np.random.seed(42)
+    return np.random.normal(0, 1, 100)
+
 class TestAdaptiveThreshold:
     def test_threshold_adaptation(self):
         handler = AdaptiveThresholdHandler(target_false_alarm_rate=0.05)

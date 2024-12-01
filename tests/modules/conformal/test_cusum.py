@@ -3,6 +3,11 @@ import numpy as np
 from expectation.conformal.cusum import ConformalCUSUM, CUSUMResult, EfficiencyAnalyzer
 
 
+@pytest.fixture
+def sample_data():
+    np.random.seed(42)
+    return np.random.normal(0, 1, 100)
+
 class TestCUSUM:
     def test_cusum_detector(self, sample_data):
         detector = ConformalCUSUM(threshold=5.0)
