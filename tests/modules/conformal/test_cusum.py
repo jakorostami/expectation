@@ -5,7 +5,6 @@ from expectation.conformal.cusum import ConformalCUSUM, CUSUMResult, EfficiencyA
 
 class TestCUSUM:
     def test_cusum_detector(self, sample_data):
-        """Test CUSUM detector functionality."""
         detector = ConformalCUSUM(threshold=5.0)
         
         # Test update and alarm generation
@@ -19,7 +18,6 @@ class TestCUSUM:
         assert result.statistic == 0.0  # Reset after alarm
     
     def test_efficiency_analyzer(self):
-        """Test efficiency analysis."""
         analyzer = EfficiencyAnalyzer()
         detector = ConformalCUSUM(threshold=10.0)
         
