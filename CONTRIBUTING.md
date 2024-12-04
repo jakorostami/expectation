@@ -112,6 +112,7 @@ It is the work of the following people this library is focused around so it is w
 [Vladimir Vovk](https://www.vovk.net) <br>
 [Peter Grünwald](https://safestatistics.com) <br>
 [Glenn Shafer](http://glennshafer.com) <br>
+[Alexander Ly](https://www.alexander-ly.com) <br>
 [Ruodu Wang](https://sas.uwaterloo.ca/~wang/) <br>
 [Hongjian Wang](https://wanghongjian.wordpress.com) <br>
 
