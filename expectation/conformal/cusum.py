@@ -10,18 +10,18 @@ https://www.alrw.net/articles/29.pdf
 from typing import List, Optional, Tuple
 import numpy as np
 from numpy.typing import ArrayLike
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 
-@dataclass
-class CUSUMResult:
+
+class CUSUMResultState(BaseModel):
     """
-    Results from CUSUM procedure.
+    Results from the CUSUM procedure.
     """
-    statistic: float  # Current CUSUM statistic
+    statistic: float = Field()  # Current CUSUM statistic
     alarms: List[int]  # Time points of alarms
     alarm_stats: List[float]  # CUSUM statistics at alarm points
     all_stats: List[float]  # Full history of statistics
-    n_alarms: int  # Total number of alarms raised
+    n_alarms: int = Field(default=0, ge=0)  # Total number of alarms raised
 
 class ConformalCUSUM:
     """
@@ -62,7 +62,7 @@ class ConformalCUSUM:
         self._alarms = []  # Alarm times
         self._alarm_stats = []  # Statistics at alarm times
         
-    def update(self, e_value: float) -> CUSUMResult:
+    def update(self, e_value: float) -> CUSUMResultState:
         """
         Update CUSUM statistic with new e-value.
         
@@ -98,7 +98,7 @@ class ConformalCUSUM:
             self._last_alarm = t
             self._cusum_stat = 0.0  # Reset after alarm
             
-        return CUSUMResult(
+        return CUSUMResultState(
             statistic=self._cusum_stat,
             alarms=self._alarms.copy(),
             alarm_stats=self._alarm_stats.copy(),
