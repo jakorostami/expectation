@@ -11,7 +11,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict
 from numpy.typing import NDArray
-from dataclasses import dataclass
 from enum import Enum
 
 class HypothesisType(str, Enum):
