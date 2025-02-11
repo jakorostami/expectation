@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from expectation.conformal.cusum import ConformalCUSUM, CUSUMResult, EfficiencyAnalyzer
+from expectation.conformal.cusum import ConformalCUSUM
 
 # TODO: fix test because it is not proper
 class TestCUSUM:
