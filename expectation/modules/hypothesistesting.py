@@ -6,34 +6,39 @@ Hypothesis testing with e-values, A. Ramdas, R. Wang (2024) - https://arxiv.org/
 Safe Testing, P. Grünwald, R. de Heide, W.M Koolen (2019) - https://arxiv.org/pdf/1906.07801
 """
 
-from typing import Optional, Callable, Sequence, ClassVar
+from typing import Optional, Callable, Sequence, ClassVar, List, Union, Tuple
 from abc import ABC, abstractmethod
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict
 from numpy.typing import NDArray
 from enum import Enum
 
+from expectation.modules.epower import (
+    EPowerCalculator, EPowerConfig, EPowerType, EPowerResult
+)
+
+class SymmetryType(str, Enum):
+    FISHER = "fisher"
+    SIGN = "sign"
+    WILCOXON = "wilcoxon"
+
 class HypothesisType(str, Enum):
-    """Types of statistical hypotheses."""
     SIMPLE = "simple"
     COMPOSITE = "composite"
     POINT = "point"
 
 class Hypothesis(BaseModel):
-    """Base model for statistical hypotheses."""
     name: str
     description: Optional[str] = None
     type: HypothesisType
     model_config = ConfigDict(frozen=True)
 
 class EValueConfig(BaseModel):
-    """Configuration settings for e-values."""
     significance_level: float = Field(gt=0, lt=1, default=0.05)
     allow_infinite: bool = Field(default=False)
     model_config = ConfigDict(frozen=True)
 
 class EValueResult(BaseModel):
-    """Result model for e-value computations."""
     value: float = Field(ge=0)
     significant: bool
     sample_size: int = Field(gt=0)
@@ -42,8 +47,6 @@ class EValueResult(BaseModel):
     timestamp: float = Field(default_factory=lambda: np.datetime64('now').astype(float))
 
 class EValue(ABC):
-    """Abstract base class for e-values using Pydantic."""
-    
     config: ClassVar[EValueConfig] = EValueConfig()
     
     def __init__(self, 
@@ -55,11 +58,15 @@ class EValue(ABC):
     
     @abstractmethod
     def compute(self, data: NDArray) -> float:
-        """Compute the e-value for given data."""
+        """
+        Compute the e-value for given data.
+        """
         pass
     
     def test(self, data: NDArray) -> EValueResult:
-        """Compute e-value and return detailed results."""
+        """
+        Compute e-value and return detailed results.
+        """
         value = self.compute(data)
         
         if not self.config.allow_infinite and np.isinf(value):
@@ -77,14 +84,13 @@ class EValue(ABC):
     
     @property
     def result(self) -> Optional[EValueResult]:
-        """Get the latest test result if available."""
+        """
+        Get the latest test result if available.
+        """
         return self._result
 
 class LikelihoodRatioEValue(EValue):
-    """E-value based on likelihood ratio with Pydantic models."""
-    
     class Config(BaseModel):
-        """Configuration for likelihood ratio computation."""
         log_space: bool = Field(default=True, description="Compute in log space for numerical stability")
         model_config = ConfigDict(frozen=True)
     
@@ -107,31 +113,24 @@ class LikelihoodRatioEValue(EValue):
             ratios = self.alt_density(data) / self.null_density(data)
             return float(np.prod(ratios))
 
-class EProcess(BaseModel):
-    """E-process model for sequential testing."""
-    
+class EProcess(BaseModel):    
     values: list[float] = Field(default_factory=list)
     cumulative_value: float = Field(default=1.0)
     total_samples: int = Field(default=0)
     config: EValueConfig
     
     def update(self, e_value: float) -> float:
-        """Update e-process with new e-value."""
         self.values.append(e_value)
         self.cumulative_value *= e_value
         self.total_samples += 1
         return self.cumulative_value
     
     def is_significant(self, alpha: Optional[float] = None) -> bool:
-        """Check if current cumulative e-value is significant."""
         alpha = alpha or self.config.significance_level
         return self.cumulative_value >= 1/alpha
 
 class UniversalEValue(EValue):
-    """Universal inference e-value with Pydantic."""
-    
     class Config(BaseModel):
-        """Configuration for universal inference."""
         split_ratio: float = Field(gt=0, lt=1, default=0.5)
         min_samples: int = Field(ge=2, default=4)
         model_config = ConfigDict(frozen=True)
@@ -159,53 +158,148 @@ class UniversalEValue(EValue):
         
         ratios = q1_hat(D0) / p0_hat(D0)
         return float(np.prod(ratios))
+    
 
-# Example usage
-if __name__ == "__main__":
-    from scipy.stats import norm
+class SymmetryETest:
+    """Implementation of nonparametric e-tests of symmetry from the paper:
+    Nonparametric E-tests of symmetry, Vovk and R. Wang (2024) - https://doi.org/10.51387/24-NEJSDS60
     
-    # Define a simple null hypothesis
-    null = Hypothesis(
-        name="Standard Normal",
-        description="Normal(0,1) distribution",
-        type=HypothesisType.SIMPLE
-    )
+    This class implements the three symmetry tests discussed in the paper:
+    1. Fisher-type test (based on sum of observations)
+    2. Sign test (based on number of positive observations)
+    3. Wilcoxon signed-rank test (based on ranks of positive observations)
+    """
     
-    # Create custom config
-    config = EValueConfig(
-        significance_level=0.05,
-        allow_infinite=False
-    )
+    def __init__(self, 
+                 test_type: SymmetryType = SymmetryType.FISHER,
+                 config: Optional[EValueConfig] = None,
+                 lambda_value: float = 0.5,
+                 e_power_config: Optional[EPowerConfig] = None):
+        self.null_hypothesis = Hypothesis(
+            name="Symmetry",
+            description="Distribution is symmetric around 0",
+            type=HypothesisType.COMPOSITE
+        )
+        
+        self.config = config or EValueConfig()
+        self.test_type = test_type
+        self.lambda_value = lambda_value
+        self.e_power_calculator = EPowerCalculator(e_power_config)
+        self._result = None
+        
+    def compute(self, data: NDArray) -> float:
+        if self.test_type == SymmetryType.FISHER:
+            return self._compute_fisher_e_value(data)
+        elif self.test_type == SymmetryType.SIGN:
+            return self._compute_sign_e_value(data)
+        elif self.test_type == SymmetryType.WILCOXON:
+            return self._compute_wilcoxon_e_value(data)
+        else:
+            raise ValueError(f"Unknown test type: {self.test_type}")
+            
+    def _compute_fisher_e_value(self, data: NDArray) -> float:
+        """
+        Compute Fisher-type e-value (Section 4 in the paper).
+        
+        This implements equation (4.4) from the paper
+        """
+        lambda_val = self.lambda_value
+        numerator = np.exp(lambda_val * data)
+        denominator = 0.5 * (np.exp(lambda_val * data) + np.exp(-lambda_val * data))
+        
+        e_value = np.prod(numerator / denominator)
+        
+        return float(e_value)
     
-    # Create density functions
-    def null_density(x): return norm.pdf(x, loc=0, scale=1)
-    def alt_density(x): return norm.pdf(x, loc=1, scale=1)
+    def _compute_sign_e_value(self, data: NDArray) -> float:
+        """
+        Compute Sign e-value (Section 7 in the paper).
+        
+        This implements equation (7.3) from the paper where k is the number of psitive observations
+        """
+        lambda_val = self.lambda_value
+
+        k = np.sum(data > 0)
+        n = len(data)
+
+        e_value = np.exp(lambda_val * k) * (2 / (1 + np.exp(lambda_val)))**n
+        
+        return float(e_value)
     
-    # Initialize e-value calculator
-    e_val = LikelihoodRatioEValue(
-        null_hypothesis=null,
-        null_density=null_density,
-        alt_density=alt_density,
-        config=config,
-        lr_config=LikelihoodRatioEValue.Config(log_space=True)
-    )
+    def _compute_wilcoxon_e_value(self, data: NDArray) -> float:
+        """
+        Compute Wilcoxon signed-rank e-value (Section 8 in the paper).
+        
+        This implements equation (8.3) from the paper where V_n is the sum of ranks of positive observations.
+        """
+        lambda_val = self.lambda_value
+        n = len(data)
+
+        abs_data = np.abs(data)
+        ranks = np.argsort(np.argsort(abs_data)) + 1
+ 
+        V_n = np.sum(ranks[data > 0])
+        
+        numerator = np.exp(lambda_val * V_n)
+        denominator_factors = np.array([1 + np.exp(lambda_val * i) for i in range(1, n+1)])
+        denominator = np.prod(2 / denominator_factors)
+        
+        e_value = numerator * denominator
+        
+        return float(e_value)
+
+    def test(self, data: NDArray) -> EValueResult:
+        value = self.compute(data)
+        
+        if not self.config.allow_infinite and np.isinf(value):
+            raise ValueError("Infinite e-value detected and not allowed by config")
+            
+        result = EValueResult(
+            value=float(value),
+            significant=value >= 1/self.config.significance_level,
+            sample_size=len(data),
+            hypothesis=self.null_hypothesis,
+            config=self.config
+        )
+        self._result = result
+        return result
     
-    # Generate test data
-    np.random.seed(42)
-    data = np.random.normal(loc=0.5, scale=1, size=10)
+    @property
+    def result(self) -> Optional[EValueResult]:
+        return self._result
     
-    # Run test
-    result = e_val.test(data)
-    print(f"E-value: {result.value:.4f}")
-    print(f"Significant: {result.significant}")
+    def compute_e_power(self, 
+                        alternative_data: NDArray, 
+                        e_power_config: Optional[EPowerConfig] = None) -> EPowerResult:
+        """
+        Compute e-power against alternative data using existing EPowerCalculator.
+        
+        Args:
+            alternative_data: Data from alternative distribution
+            e_power_config: Override default e-power configuration
+
+        Returns:
+            EPowerResult from the e-power calculator
+        """
+        # Compute e-values for the alternative data
+        if alternative_data.ndim == 1:
+            # Single sample
+            e_values = np.array([self.compute(alternative_data)])
+        else:
+            # Multiple samples
+            e_values = np.array([self.compute(sample) for sample in alternative_data])
+        
+        # Use the e-power calculator from epower.py
+        calculator = EPowerCalculator(e_power_config or self.e_power_calculator.config)
+        return calculator.compute(e_values)
     
-    # Create e-process
-    e_process = EProcess(config=config)
-    
-    # Update sequentially
-    for x in data:
-        new_result = e_val.test(np.array([x]))
-        cumulative = e_process.update(new_result.value)
-        print(f"Observation: {x:.2f}, "
-              f"E-value: {new_result.value:.4f}, "
-              f"Cumulative: {cumulative:.4f}")
+    def get_asy_efficiency(self) -> float:
+        # Return the known asymptotic efficiencies from the paper
+        if self.test_type == SymmetryType.FISHER:
+            return 1.0  # Fisher's test has efficiency 1 (Section 6)
+        elif self.test_type == SymmetryType.SIGN:
+            return 2/np.pi  # Sign test has efficiency 2/pi
+        elif self.test_type == SymmetryType.WILCOXON:
+            return 3/np.pi  # Wilcoxon test has efficiency 3/pi
+        else:
+            return 0.0
