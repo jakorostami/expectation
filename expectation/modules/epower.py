@@ -4,13 +4,11 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 class EPowerType(str, Enum):
-    """Types of e-power calculations."""
     STANDARD = "standard"
     ALL_OR_NOTHING = "all_or_nothing"
     OPTIMIZED = "optimized"
 
 class EPowerConfig(BaseModel):
-    """Configuration for e-power calculations."""
     type: EPowerType = Field(default=EPowerType.STANDARD)
     optimize_lambda: bool = Field(default=False)
     grid_size: int = Field(default=100)
@@ -18,7 +16,6 @@ class EPowerConfig(BaseModel):
     max_lambda: float = Field(default=1.0)
 
 class EPowerResult(BaseModel):
-    """Results from e-power calculation."""
     e_power: float = Field(description="Computed e-power value")
     is_positive: bool = Field(description="Whether e-power is positive")
     expected_e_value: float = Field(description="Expected e-value")
@@ -26,7 +23,9 @@ class EPowerResult(BaseModel):
     type: EPowerType = Field(description="Type of e-power calculation used")
 
 class EPowerCalculator:
-    """Calculator for e-power metrics."""
+    """
+    Calculator for e-power metrics.
+    """
 
     def __init__(self, config: Optional[EPowerConfig] = None):
         self.config = config or EPowerConfig()
@@ -36,7 +35,6 @@ class EPowerCalculator:
         e_values: np.ndarray,
         alternative_prob: Optional[np.ndarray] = None
     ) -> EPowerResult:
-        """Compute e-power for given e-values."""
         if alternative_prob is None:
             alternative_prob = np.ones(len(e_values)) / len(e_values)
 
@@ -69,7 +67,6 @@ class EPowerCalculator:
         e_values: np.ndarray,
         alternative_prob: np.ndarray
     ) -> float:
-        """Find optimal lambda to maximize e-power."""
         lambdas = np.linspace(
             self.config.min_lambda,
             self.config.max_lambda,

@@ -271,16 +271,6 @@ class SymmetryETest:
     def compute_e_power(self, 
                         alternative_data: NDArray, 
                         e_power_config: Optional[EPowerConfig] = None) -> EPowerResult:
-        """
-        Compute e-power against alternative data using existing EPowerCalculator.
-        
-        Args:
-            alternative_data: Data from alternative distribution
-            e_power_config: Override default e-power configuration
-
-        Returns:
-            EPowerResult from the e-power calculator
-        """
         # Compute e-values for the alternative data
         if alternative_data.ndim == 1:
             # Single sample

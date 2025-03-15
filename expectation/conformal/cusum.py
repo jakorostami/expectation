@@ -33,15 +33,6 @@ class ConformalCUSUM:
                  use_sr: bool = False,
                  truncate: bool = True,
                  min_value: float = 1e-10):
-        """
-        Initialize CUSUM e-procedure.
-        
-        Args:
-            threshold: Detection threshold c > 1
-            use_sr: Whether to use Shiryaev-Roberts modification
-            truncate: Whether to use truncation
-            min_value: Minimum value for truncation
-        """
         if threshold <= 1:
             raise ValueError("Threshold must be > 1")
         
@@ -53,9 +44,6 @@ class ConformalCUSUM:
         self.reset()
     
     def reset(self):
-        """
-        Reset detector state.
-        """
         self._last_alarm = 0  # Time of last alarm
         self._cusum_stat = 0.0  # Current CUSUM statistic
         self._stats_history = []  # History of statistics
@@ -63,15 +51,6 @@ class ConformalCUSUM:
         self._alarm_stats = []  # Statistics at alarm times
         
     def update(self, e_value: float) -> CUSUMResultState:
-        """
-        Update CUSUM statistic with new e-value.
-        
-        Args:
-            e_value: New conformal e-value
-            
-        Returns:
-            CUSUMResult with current state
-        """
         # Update time step
         t = len(self._stats_history) + 1
         
@@ -107,12 +86,6 @@ class ConformalCUSUM:
         )
     
     def get_alarm_rate(self) -> float:
-        """
-        Calculate empirical alarm rate.
-        
-        Returns:
-            Number of alarms divided by number of observations
-        """
         t = len(self._stats_history)
         return len(self._alarms) / t if t > 0 else 0.0
 
@@ -124,20 +97,10 @@ class EfficiencyAnalyzer:
     def __init__(self, 
                  pre_dist: Optional[callable] = None,
                  post_dist: Optional[callable] = None):
-        """
-        Initialize analyzer.
-        
-        Args:
-            pre_dist: Pre-change distribution sampler
-            post_dist: Post-change distribution sampler
-        """
         self.pre_dist = pre_dist or (lambda n: np.random.normal(0, 1, n))
         self.post_dist = post_dist or (lambda n: np.random.normal(0.5, 1, n))
         
     def compute_likelihood_ratios(self, data: ArrayLike) -> np.ndarray:
-        """
-        Compute likelihood ratios for efficiency analysis.
-        """
         data = np.asarray(data)
         # Using normal distributions as default
         pre_likelihood = np.exp(-0.5 * data**2) / np.sqrt(2 * np.pi)
@@ -147,16 +110,6 @@ class EfficiencyAnalyzer:
     def analyze_decay(self, 
                      e_values: ArrayLike,
                      change_point: int) -> Tuple[float, float]:
-        """
-        Analyze decay rate of e-values after change point.
-        
-        Args:
-            e_values: Sequence of e-values
-            change_point: Known change point
-            
-        Returns:
-            Tuple of (decay rate, standard error)
-        """
         e_values = np.asarray(e_values)
         post_change = e_values[change_point:]
         
@@ -177,18 +130,6 @@ class EfficiencyAnalyzer:
                                  n_pre: int = 1000,
                                  n_post: int = 1000,
                                  n_trials: int = 100) -> dict:
-        """
-        Compute comprehensive efficiency metrics.
-        
-        Args:
-            detector: CUSUM detector to evaluate
-            n_pre: Pre-change sample size
-            n_post: Post-change sample size
-            n_trials: Number of Monte Carlo trials
-            
-        Returns:
-            Dictionary of efficiency metrics
-        """
         detection_delays = []
         false_alarms = []
         decay_rates = []

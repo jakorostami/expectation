@@ -7,12 +7,10 @@ from expectation.modules.hypothesistesting import (
 
 @pytest.fixture
 def basic_config():
-    """Fixture for basic EValueConfig."""
     return EValueConfig(significance_level=0.05, allow_infinite=False)
 
 @pytest.fixture
 def normal_evaluator():
-    """Fixture for normal likelihood ratio e-value calculator."""
     null_hypothesis = Hypothesis(
         name="Standard Normal",
         description="N(0,1) distribution",
@@ -33,7 +31,6 @@ def normal_evaluator():
 
 class TestEValue:
     def test_config_validation(self):
-        """Test EValueConfig validation."""
         # Valid config
         config = EValueConfig(significance_level=0.05, allow_infinite=False)
         assert config.significance_level == 0.05
@@ -45,7 +42,6 @@ class TestEValue:
             EValueConfig(significance_level=-0.1)
     
     def test_likelihood_ratio_properties(self, normal_evaluator):
-        """Test properties of likelihood ratio e-values."""
         # Test with data from null
         np.random.seed(42)
         null_data = np.random.normal(0, 1, 100)
@@ -63,7 +59,6 @@ class TestEValue:
         assert alt_result.value > null_result.value
     
     def test_e_process_properties(self, normal_evaluator):
-        """Test properties of e-process."""
         config = EValueConfig(significance_level=0.05, allow_infinite=False)
         e_process = EProcess(config=config)  # Use config directly, not fixture
         
@@ -86,7 +81,6 @@ class TestEValue:
         
 class TestHypothesis:
     def test_hypothesis_creation(self):
-        """Test hypothesis creation and validation."""
         # Valid hypothesis
         h = Hypothesis(
             name="Test",

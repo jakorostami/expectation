@@ -11,7 +11,6 @@ from expectation.modules.boundaries import (
 class TestBoundaryFunctions:
     @pytest.mark.parametrize("is_one_sided", [True, False])
     def test_normal_mixture(self, is_one_sided):
-        """Test normal mixture functions."""
         s = np.array([0.0, 0.5, 1.0])
         v = np.ones_like(s)
         v_opt = 1.0
@@ -28,7 +27,6 @@ class TestBoundaryFunctions:
         assert np.all(bounds > 0)
     
     def test_gamma_exponential_mixture(self):
-        """Test gamma-exponential mixture functions."""
         s = np.array([0.0, 0.5, 1.0])
         v = np.ones_like(s)
         v_opt = 1.0
@@ -46,7 +44,6 @@ class TestBoundaryFunctions:
         assert np.all(bounds > 0)
     
     def test_beta_binomial_mixture(self):
-        """Test beta-binomial mixture functions."""
         s = np.array([0.0, 0.5, 1.0])
         v = np.ones_like(s)
         v_opt = 1.0
@@ -69,7 +66,6 @@ class TestBoundaryFunctions:
             assert np.all(bounds > 0)
     
     def test_poly_stitching_bound(self):
-        """Test polynomial stitching bound."""
         v = np.array([1.0, 2.0, 5.0])
         alpha = 0.05
         v_min = 0.5
@@ -82,7 +78,6 @@ class TestBoundaryFunctions:
         assert np.all(np.diff(bounds) >= 0)  # should increase with v
     
     def test_empirical_process_lil_bound(self):
-        """Test empirical process LIL bound."""
         t_values = [10, 100, 1000]
         alpha = 0.05
         t_min = 5
@@ -93,7 +88,6 @@ class TestBoundaryFunctions:
             assert not np.isnan(bound)
     
     def test_double_stitching_bound(self):
-        """Test double stitching bound."""
         test_cases = [
             (0.5, 100, 0.05, 50),  # median, moderate sample
             (0.75, 200, 0.01, 100),  # upper quartile, larger sample
@@ -110,7 +104,6 @@ class TestBoundaryFunctions:
             assert bound_larger_t >= bound
     
     def test_log_beta(self):
-        """Test log beta function."""
         test_cases = [
             (1.0, 1.0),  # uniform
             (0.5, 0.5),  # jeffreys
@@ -122,11 +115,9 @@ class TestBoundaryFunctions:
             assert not np.isnan(value)
             assert not np.isinf(value)
             
-            # Test symmetry
             assert np.abs(log_beta(a, b) - log_beta(b, a)) < 1e-10
     
     def test_log_incomplete_beta(self):
-        """Test log incomplete beta function."""
         test_cases = [
             (1.0, 1.0, 0.5),  # symmetric case
             (2.0, 2.0, 0.7),  # symmetric parameters
@@ -138,7 +129,6 @@ class TestBoundaryFunctions:
             assert not np.isnan(value)
             assert not np.isinf(value)
             
-            # Test boundary case
             full_value = log_incomplete_beta(a, b, 1.0)
             assert full_value == log_beta(a, b)
     
@@ -148,7 +138,6 @@ class TestBoundaryFunctions:
         (poly_stitching_bound, {'v_min': 0.5, 'c': 0, 's': 1.4, 'eta': 2})
     ])
     def test_bound_properties(self, bound_fn, params):
-        """Test general properties of boundary functions."""
         v_values = np.array([0.5, 1.0, 2.0, 5.0])
         alpha = 0.05
         
@@ -168,22 +157,17 @@ class TestBoundaryFunctions:
         assert np.all(bounds_larger_alpha <= bounds)
     
     def test_extreme_cases(self):
-        """Test boundary functions with extreme inputs."""
         # Very small values
         v_small = np.array([1e-10, 1e-9, 1e-8])
         # Very large values
         v_large = np.array([1e8, 1e9, 1e10])
         
-        # Test each boundary function with extreme values
         for v in [v_small, v_large]:
-            # Normal mixture
             bounds = normal_mixture_bound(v, 0.05, 1.0, 0.05, True)
             assert np.all(np.isfinite(bounds))
             
-            # Gamma exponential
             bounds = gamma_exponential_mixture_bound(v, 0.05, 1.0, 1.0, 0.05)
             assert np.all(np.isfinite(bounds))
-            
-            # Poly stitching
+
             bounds = poly_stitching_bound(v, 0.05, min(v)/2)
             assert np.all(np.isfinite(bounds))

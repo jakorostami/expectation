@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field, ConfigDict, validator
 
 
 class BoundaryType(str, Enum):
-    """Available boundary types for confidence sequences."""
     NORMAL_MIXTURE = "normal_mixture"
     BETA_BINOMIAL = "beta_binomial" 
     GAMMA_EXPONENTIAL = "gamma_exponential"
@@ -12,14 +11,12 @@ class BoundaryType(str, Enum):
     DISCRETE_MIXTURE = "discrete_mixture"
 
 class EstimandType(str, Enum):
-    """Types of parameters that can be estimated."""
     MEAN = "mean"
     QUANTILE = "quantile"
     VARIANCE = "variance"
     PROPORTION = "proportion"
 
 class ConfidenceSequenceConfig(BaseModel):
-    """Configuration settings for confidence sequences."""
     alpha: float = Field(gt=0, lt=1, default=0.05)
     alpha_opt: float = Field(gt=0, lt=1, default=0.05)
     v_opt: float = Field(gt=0, default=1.0)

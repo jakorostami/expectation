@@ -28,16 +28,6 @@ class ConformalEValue:
                  v_opt: float = 1.0,
                  alpha_opt: float = 0.05,
                  allow_infinite: bool = False):
-        """
-        Initialize conformal e-value calculator.
-        
-        Args:
-            nonconformity_type: Type of nonconformity measure 
-            is_one_sided: Whether to use one-sided or two-sided test
-            v_opt: Optimal variance parameter
-            alpha_opt: Optimal significance level
-            allow_infinite: Whether to allow infinite e-values
-        """
         self.allow_infinite = allow_infinite
         self.v_opt = v_opt
         self.alpha_opt = alpha_opt
@@ -52,22 +42,12 @@ class ConformalEValue:
         self.reset()
     
     def reset(self):
-        """
-        
-        Reset internal state.
-        
-        """
         self._data: List[float] = []
         self._running_mean = 0.0
         self._running_var = 1.0
         self._n_samples = 0
         
     def _update_statistics(self, new_data: np.ndarray):
-        """
-        
-        Update running statistics using Welford's online algorithm.
-        
-        """
         for x in new_data:
             self._n_samples += 1
             delta = x - self._running_mean
@@ -78,15 +58,6 @@ class ConformalEValue:
                                    delta * delta2) / (self._n_samples - 1)
     
     def compute_nonconformity_score(self, data: np.ndarray) -> float:
-        """
-        Compute nonconformity score for new data.
-        
-        Args:
-            data: New observations
-            
-        Returns:
-            Nonconformity e-score
-        """
         batch_size = len(data)
         
         if self._n_samples == 0:
@@ -110,15 +81,6 @@ class ConformalEValue:
         return e_score
         
     def update(self, new_data: ArrayLike) -> float:
-        """
-        Update with new observations and compute conformal e-value.
-        
-        Args:
-            new_data: New observations to process
-            
-        Returns:
-            Conformal e-value for the new observations
-        """
         new_data = np.asarray(new_data)
         
         # Compute e-value before updating statistics
@@ -147,34 +109,18 @@ class ConformalEPseudomartingale:
     def __init__(self, 
                  initial_capital: float = 1.0,
                  allow_infinite: bool = False):
-        """
-        Initialize conformal e-pseudomartingale.
-        
-        Args:
-            initial_capital: Initial capital (S₀), defaults to 1
-            allow_infinite: Whether to allow infinite values
-        """
         self.initial_capital = initial_capital
         self.allow_infinite = allow_infinite
         self.reset()
         
     def reset(self):
-        """Reset to initial state."""
         self._capital = self.initial_capital  # Current capital Sₙ
         self._e_values: List[float] = []  # History of e-values
         self._capital_history: List[float] = [self.initial_capital]  # History of Sₙ
         self._max_capital = self.initial_capital  # Running maximum S*_∞
         
     def update(self, e_value: float) -> Tuple[float, float]:
-        """
-        Update pseudomartingale with new e-value.
-        
-        Args:
-            e_value: New conformal e-value
-            
-        Returns:
-            Tuple of (current capital, maximum capital so far)
-        """
+
         if not self.allow_infinite and np.isinf(e_value):
             raise ValueError("Infinite e-value detected and not allowed")
             
@@ -191,88 +137,38 @@ class ConformalEPseudomartingale:
         return self._capital, self._max_capital
     
     def compound_bet(self, e_values: ArrayLike) -> float:
-        """
-        Compute compound betting result for sequence of e-values.
-        
-        Args:
-            e_values: Sequence of e-values to compound
-            
-        Returns:
-            Final capital after compounding all e-values
-        """
         e_values = np.asarray(e_values)
         return float(self.initial_capital * np.prod(e_values))
     
     @property
     def capital(self) -> float:
-        """
-        Current capital S_n.
-        """
         return self._capital
     
     @property
     def max_capital(self) -> float:
-        """
-        Maximum capital achieved S*_inf
-        """
         return self._max_capital
     
     @property
     def n_steps(self) -> int:
-        """
-        Number of updates performed.
-        """
         return len(self._e_values)
     
     def get_history(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Get history of e-values and capitals.
-        
-        Returns:
-            Tuple of (e_values array, capital history array)
-        """
         return (np.array(self._e_values), 
                 np.array(self._capital_history))
     
     def test_threshold(self, threshold: float, use_max: bool = True) -> bool:
-        """
-        Test if capital exceeds threshold.
-        
-        Args:
-            threshold: Threshold value c > 1 to test against
-            use_max: Whether to use maximum capital (True) or current capital (False)
-            
-        Returns:
-            True if capital exceeds threshold
-        """
         test_value = self._max_capital if use_max else self._capital
         return test_value >= threshold
 
 class TruncatedEPseudomartingale(ConformalEPseudomartingale):
-    """
-    Implementation of truncated version that forces minimum capital level.
-    This helps prevent numerical underflow and implements truncation 
-    as discussed in the paper.
-    """
     def __init__(self,
                  initial_capital: float = 1.0,
                  min_capital: float = 1e-10,
                  allow_infinite: bool = False):
-        """
-        Initialize truncated pseudomartingale.
-        
-        Args:
-            initial_capital: Initial capital S₀
-            min_capital: Minimum allowed capital level
-            allow_infinite: Whether to allow infinite values
-        """
         super().__init__(initial_capital, allow_infinite)
         self.min_capital = min_capital
         
     def update(self, e_value: float) -> Tuple[float, float]:
-        """
-        Update with truncation at minimum capital level.
-        """
         capital, max_cap = super().update(e_value)
         
         # Apply truncation
