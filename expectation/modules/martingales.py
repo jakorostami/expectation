@@ -7,6 +7,13 @@ Merging sequential e-values via martingales, V. Vovk, R. Wang (2024) - https://a
 
 Time-uniform central limit theory and asymptotic confidence sequences, I. Waudby-Smith, D. Arbour, R. Sinha, E.H Kennedy, A. Ramdas (2021) - https://arxiv.org/pdf/2103.06476
 """
+# Translatend from https://github.com/gostevehoward/confseq boundaries.cpp
+# Howard, S. R., Waudby-Smith, I. and Ramdas, A. (2019-), ConfSeq: software for confidence sequences and uniform boundaries, https://github.com/gostevehoward/confseq [Online; accessed ].
+
+# Using numpy and scipy for math functions
+# Boosts special functions -> Scipy equivalents
+# Numpy arrays for vectorized calculations
+# Scipy optimize for root finding
 
 
 import numpy as np
