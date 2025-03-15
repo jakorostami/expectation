@@ -16,7 +16,7 @@ A Python library for sequential testing and monitoring using e-values and e-proc
 
 🛠️ **Flexible**: Supports various types of tests (means, proportions, quantiles, variances) and can be extended to custom scenarios.
 
-![](https://github.com/jakorostami/expectation/blob/main/assets/images/eprocess.png)
+![](https://github.com/jakorostami/expectation/blob/main/assets/images/plot.png)
 
 ## Who is it for?
 
