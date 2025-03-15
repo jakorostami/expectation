@@ -5,23 +5,19 @@ from expectation.modules.orderstatistics import StaticOrderStatistics
 class TestStaticOrderStatistics:
     @pytest.fixture
     def sample_data(self):
-        """Fixture providing sample data."""
         return [1.0, 5.0, 2.0, 8.0, 3.0]
     
     @pytest.fixture
     def ordered_stats(self, sample_data):
-        """Fixture providing initialized order statistics."""
         return StaticOrderStatistics(sample_data)
     
     def test_initialization(self, sample_data):
-        """Test proper initialization."""
         stats = StaticOrderStatistics(sample_data)
         assert len(stats.sorted_values) == len(sample_data)
         assert all(x <= y for x, y in zip(stats.sorted_values[:-1], 
                                         stats.sorted_values[1:]))
     
     def test_get_order_statistic(self, ordered_stats):
-        """Test retrieval of order statistics."""
         # First order statistic should be minimum
         assert ordered_stats.get_order_statistic(1) == min(ordered_stats.sorted_values)
         
@@ -37,41 +33,33 @@ class TestStaticOrderStatistics:
             ordered_stats.get_order_statistic(len(ordered_stats.sorted_values) + 1)  # Too large
     
     def test_count_less(self, ordered_stats):
-        """Test counting values less than threshold."""
-        # All values less than maximum
+
         max_val = max(ordered_stats.sorted_values)
         assert ordered_stats.count_less(max_val + 1) == len(ordered_stats.sorted_values)
         
-        # No values less than minimum
         min_val = min(ordered_stats.sorted_values)
         assert ordered_stats.count_less(min_val) == 0
         
-        # Intermediate value
         middle_val = ordered_stats.sorted_values[len(ordered_stats.sorted_values)//2]
         count = ordered_stats.count_less(middle_val)
         assert 0 < count < len(ordered_stats.sorted_values)
     
     def test_count_less_or_equal(self, ordered_stats):
-        """Test counting values less than or equal to threshold."""
-        # All values less than or equal to maximum
+
         max_val = max(ordered_stats.sorted_values)
         assert ordered_stats.count_less_or_equal(max_val) == len(ordered_stats.sorted_values)
         
-        # Only minimum value less than or equal to minimum
         min_val = min(ordered_stats.sorted_values)
         min_count = sum(1 for x in ordered_stats.sorted_values if x == min_val)
         assert ordered_stats.count_less_or_equal(min_val) == min_count
     
     def test_size(self, ordered_stats, sample_data):
-        """Test size calculation."""
         assert ordered_stats.size() == len(sample_data)
         
-        # Empty data
         empty_stats = StaticOrderStatistics([])
         assert empty_stats.size() == 0
     
     def test_consistency(self, ordered_stats):
-        """Test consistency between different methods."""
         for i in range(1, ordered_stats.size() + 1):
             value = ordered_stats.get_order_statistic(i)
             # Count of values less than order statistic i should be i-1
@@ -86,7 +74,6 @@ class TestStaticOrderStatistics:
         [-np.inf, 0, np.inf]  # extreme values
     ])
     def test_special_cases(self, data):
-        """Test behavior with special cases."""
         stats = StaticOrderStatistics(data)
         
         assert stats.size() == len(data)

@@ -20,11 +20,9 @@ from expectation.modules.martingales import (BetaBinomialMixture,
 
 
 def log_beta(a: float, b: float) -> float:
-    """Compute logarithm of beta function."""
     return special.gammaln(a) + special.gammaln(b) - special.gammaln(a + b)
 
 def log_incomplete_beta(a: float, b: float, x: float) -> float:
-    """Compute logarithm of incomplete beta function."""
     if x == 1:
         return log_beta(a, b)
     return np.log(special.betainc(a, b, x)) + log_beta(a, b)
@@ -32,7 +30,6 @@ def log_incomplete_beta(a: float, b: float, x: float) -> float:
 # Simple interface functions
 def normal_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float, 
                       alpha_opt: float = 0.05, is_one_sided: bool = True) -> np.ndarray:
-    """Calculate normal log mixture."""
     s, v = np.asarray(s), np.asarray(v)
     mixture = OneSidedNormalMixture(v_opt, alpha_opt) if is_one_sided else TwoSidedNormalMixture(v_opt, alpha_opt)
     return np.vectorize(mixture.log_superMG)(s, v)
@@ -40,35 +37,30 @@ def normal_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float,
 
 def normal_mixture_bound(v: ArrayLike, alpha: float, v_opt: float,
                         alpha_opt: float = 0.05, is_one_sided: bool = True) -> np.ndarray:
-    """Calculate normal mixture bound."""
     v = np.asarray(v)
     mixture = OneSidedNormalMixture(v_opt, alpha_opt) if is_one_sided else TwoSidedNormalMixture(v_opt, alpha_opt)
     return np.vectorize(lambda x: mixture.bound(x, np.log(1/alpha)))(v)
 
 def gamma_exponential_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float,
                                 c: float, alpha_opt: float = 0.05) -> np.ndarray:
-    """Calculate gamma exponential log mixture."""
     s, v = np.asarray(s), np.asarray(v)
     mixture = GammaExponentialMixture(v_opt, alpha_opt, c)
     return np.vectorize(mixture.log_superMG)(s, v)
 
 def gamma_exponential_mixture_bound(v: ArrayLike, alpha: float, v_opt: float,
                                   c: float, alpha_opt: float = 0.05) -> np.ndarray:
-    """Calculate gamma exponential mixture bound."""
     v = np.asarray(v)
     mixture = GammaExponentialMixture(v_opt, alpha_opt, c)
     return np.vectorize(lambda x: mixture.bound(x, np.log(1/alpha)))(v)
 
 def gamma_poisson_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float,
                             c: float, alpha_opt: float = 0.05) -> np.ndarray:
-    """Calculate gamma Poisson log mixture."""
     s, v = np.asarray(s), np.asarray(v)
     mixture = GammaPoissonMixture(v_opt, alpha_opt, c)
     return np.vectorize(mixture.log_superMG)(s, v)
 
 def gamma_poisson_mixture_bound(v: ArrayLike, alpha: float, v_opt: float,
                               c: float, alpha_opt: float = 0.05) -> np.ndarray:
-    """Calculate gamma Poisson mixture bound."""
     v = np.asarray(v)
     mixture = GammaPoissonMixture(v_opt, alpha_opt, c)
     return np.vectorize(lambda x: mixture.bound(x, np.log(1/alpha)))(v)
@@ -76,7 +68,6 @@ def gamma_poisson_mixture_bound(v: ArrayLike, alpha: float, v_opt: float,
 def beta_binomial_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float,
                             g: float, h: float, alpha_opt: float = 0.05,
                             is_one_sided: bool = True) -> np.ndarray:
-    """Calculate beta binomial log mixture."""
     s, v = np.asarray(s), np.asarray(v)
     mixture = BetaBinomialMixture(v_opt, alpha_opt, g, h, is_one_sided)
     return np.vectorize(mixture.log_superMG)(s, v)
@@ -84,28 +75,24 @@ def beta_binomial_log_mixture(s: ArrayLike, v: ArrayLike, v_opt: float,
 def beta_binomial_mixture_bound(v: ArrayLike, alpha: float, v_opt: float,
                               g: float, h: float, alpha_opt: float = 0.05,
                               is_one_sided: bool = True) -> np.ndarray:
-    """Calculate beta binomial mixture bound."""
     v = np.asarray(v)
     mixture = BetaBinomialMixture(v_opt, alpha_opt, g, h, is_one_sided)
     return np.vectorize(lambda x: mixture.bound(x, np.log(1/alpha)))(v)
 
 def poly_stitching_bound(v: ArrayLike, alpha: float, v_min: float,
                         c: float = 0, s: float = 1.4, eta: float = 2) -> np.ndarray:
-    """Calculate polynomial stitching bound."""
     v = np.asarray(v)
     bound = PolyStitchingBound(v_min, c, s, eta)
     return np.vectorize(lambda x: bound(x, alpha))(v)
 
 def empirical_process_lil_bound(t: Union[int, float], alpha: float,
                                t_min: float, A: float = 0.85) -> float:
-    """Calculate empirical process LIL bound."""
     bound = EmpiricalProcessLILBound(alpha, t_min, A)
     return bound(t)
 
 def double_stitching_bound(quantile_p: float, t: float, alpha: float,
                           t_opt: float, delta: float = 0.5,
                           s: float = 1.4, eta: float = 2) -> float:
-    """Calculate double stitching bound."""
     t_max_m = max(t, t_opt)
     
     def logit(p: float) -> float:
@@ -137,7 +124,6 @@ def bernoulli_confidence_interval(num_successes: Union[float, int],
                                 alpha: float,
                                 t_opt: float,
                                 alpha_opt: float = 0.05) -> Tuple[float, float]:
-    """Calculate Bernoulli confidence interval."""
     threshold = np.log(1/alpha)
     empirical_p = float(num_successes) / num_trials
     

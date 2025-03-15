@@ -137,12 +137,10 @@ class SequentialTest:
         self._reset_state()
     
     def _reset_state(self):
-        """Reset test state."""
         self.data = []
         self.n_samples = 0
     
     def _setup_evaluator(self):
-        """Set up appropriate e-value calculator for the test type."""
         if self.test_type == TestType.MEAN:
             # Using normal mixture directly
             mixture = (TwoSidedNormalMixture if self.alternative == AlternativeType.TWO_SIDED 
@@ -155,7 +153,7 @@ class SequentialTest:
                 # For mean test:
                 n = len(data)
                 batch_mean = np.mean(data)
-                # s should be √n * (mean - null_value) for proper scaling
+                # s should be sqrt(n) * (mean - null_value) for proper scaling
                 s = np.sqrt(n) * (batch_mean - self.null_value)
                 v = 1.0  # Using standard normal scaling
                 return np.exp(mixture.log_superMG(s, v))
@@ -163,7 +161,6 @@ class SequentialTest:
             self.e_calculator = calculator
                 
         elif self.test_type == TestType.PROPORTION:
-            # Using beta-binomial mixture
             mixture = BetaBinomialMixture(
                 v_opt=self.null_value * (1 - self.null_value),
                 alpha_opt=self.config.significance_level,
@@ -253,19 +250,6 @@ class SequentialTest:
         #     self.e_calculator = calculator
     
     def update(self, new_data: Union[List, np.ndarray, pd.Series]) -> SequentialTestResult:
-        """
-        Update test with new data.
-        
-        Parameters:
-        -----------
-        new_data : array-like
-            New observations to include in the test
-            
-        Returns:
-        --------
-        SequentialTestResult
-            Updated test results
-        """
         new_data = np.asarray(new_data)
         
         # Update state
@@ -327,10 +311,8 @@ class SequentialTest:
         )
     
     def reset(self):
-        """Reset test to initial state."""
         self._reset_state()
         self.e_process = EProcess(config=self.config)
 
     def get_history_df(self) -> pd.DataFrame:
-        """Get test history as a pandas DataFrame."""
         return pd.DataFrame(self.history)

@@ -15,7 +15,6 @@ from expectation.confseq.confidenceconfig import (
 
 @pytest.fixture
 def basic_config():
-    """Fixture providing basic configuration."""
     return ConfidenceSequenceConfig(
         alpha=0.05,
         alpha_opt=0.05,
@@ -26,7 +25,6 @@ def basic_config():
 
 @pytest.fixture
 def bernstein_config():
-    """Fixture providing Empirical Bernstein configuration."""
     return EmpiricalBernsteinConfig(
         alpha=0.05,
         alpha_opt=0.05,
@@ -40,7 +38,6 @@ def bernstein_config():
 
 @pytest.fixture
 def confidence_sequence(basic_config):
-    """Fixture providing initialized confidence sequence."""
     return ConfidenceSequence(
         config=basic_config,
         estimand=EstimandType.MEAN
@@ -48,17 +45,14 @@ def confidence_sequence(basic_config):
 
 @pytest.fixture
 def bernstein_sequence(bernstein_config):
-    """Fixture providing initialized Empirical Bernstein confidence sequence."""
     return EmpiricalBernsteinConfidenceSequence(
         config=bernstein_config,
         estimand=EstimandType.MEAN
     )
 
 class TestConfidenceSequenceState:
-    """Tests for ConfidenceSequenceState."""
-    
+
     def test_initialization(self):
-        """Test proper initialization of state."""
         state = ConfidenceSequenceState()
         assert state.n_samples == 0
         assert state.sum == 0.0
@@ -68,16 +62,13 @@ class TestConfidenceSequenceState:
         assert state.variance_estimate is None
     
     def test_immutability(self):
-        """Test that state is immutable."""
         state = ConfidenceSequenceState()
         with pytest.raises(Exception):
             state.n_samples = 1
 
 class TestConfidenceSequence:
-    """Tests for base ConfidenceSequence."""
     
     def test_initialization(self, basic_config):
-        """Test proper initialization."""
         cs = ConfidenceSequence(
             config=basic_config,
             estimand=EstimandType.MEAN
@@ -87,8 +78,6 @@ class TestConfidenceSequence:
         assert cs.config == basic_config
     
     def test_update_properties(self, confidence_sequence):
-        """Test properties of update method."""
-        # Test with single observation
         data = np.array([1.0])
         result = confidence_sequence.update(data)
         
@@ -97,7 +86,6 @@ class TestConfidenceSequence:
         assert result.sample_size == 1
         assert result.state.running_mean == 1.0
         
-        # Test with multiple observations
         data = np.array([0.0, 1.0, 2.0])
         result = confidence_sequence.update(data)
         
@@ -106,21 +94,16 @@ class TestConfidenceSequence:
         assert result.state.variance_estimate is not None
     
     def test_reset(self, confidence_sequence):
-        """Test reset functionality."""
-        # Update with some data
         data = np.array([1.0, 2.0])
         confidence_sequence.update(data)
-        
-        # Reset
+    
         confidence_sequence.reset()
         
-        # Check state is reset
         assert confidence_sequence.state.n_samples == 0
         assert confidence_sequence.state.sum == 0.0
         assert confidence_sequence.state.running_mean == 0.0
     
     def test_coverage_property(self, confidence_sequence):
-        """Test coverage property under null distribution."""
         np.random.seed(42)
         n_trials = 1000
         covered = 0
@@ -137,7 +120,6 @@ class TestConfidenceSequence:
         assert coverage >= 0.93  # Should be close to 0.95 (1-alpha)
     
     def test_boundary_consistency(self, confidence_sequence):
-        """Test consistency of confidence bounds."""
         np.random.seed(42)
         data = np.random.normal(0, 1, 100)
         
@@ -146,15 +128,11 @@ class TestConfidenceSequence:
             result = confidence_sequence.update(data[i-10:i])
             width = result.upper - result.lower
             
-            # Width should generally decrease with more samples
             assert width <= prev_width * 1.1  # Allow small fluctuations
             prev_width = width
 
 class TestEmpiricalBernsteinConfidenceSequence:
-    """Tests for Empirical Bernstein confidence sequence."""
-    
     def test_initialization(self, bernstein_config):
-        """Test proper initialization."""
         cs = EmpiricalBernsteinConfidenceSequence(
             config=bernstein_config,
             estimand=EstimandType.MEAN
@@ -163,8 +141,6 @@ class TestEmpiricalBernsteinConfidenceSequence:
         assert cs.config.upper_bound == 1.0
     
     def test_bounds_validation(self, bernstein_sequence):
-        """Test validation of observation bounds."""
-        # Valid data
         valid_data = np.array([0.2, 0.5, 0.8])
         result = bernstein_sequence.update(valid_data)
         assert result.lower >= bernstein_sequence.config.lower_bound
@@ -181,7 +157,6 @@ class TestEmpiricalBernsteinConfidenceSequence:
             bernstein_sequence.update(invalid_data)
     
     def test_coverage_property(self, bernstein_sequence):
-        """Test coverage property with bounded observations."""
         np.random.seed(42)
         n_trials = 1000
         covered = 0
@@ -200,12 +175,10 @@ class TestEmpiricalBernsteinConfidenceSequence:
     
     @pytest.mark.parametrize("data_size", [1, 10, 100])
     def test_sample_size_scaling(self, bernstein_sequence, data_size):
-        """Test scaling of confidence bounds with sample size."""
         np.random.seed(42)
         data = np.random.beta(5, 5, data_size)
         result = bernstein_sequence.update(data)
         
-        # Basic properties that should hold regardless of sample size
         assert result.lower >= bernstein_sequence.config.lower_bound
         assert result.upper <= bernstein_sequence.config.upper_bound
         assert result.sample_size == data_size
@@ -220,7 +193,6 @@ class TestEmpiricalBernsteinConfidenceSequence:
     BoundaryType.POLY_STITCHING
 ])
 def test_boundary_types(basic_config, boundary_type):
-    """Test confidence sequence with different boundary types."""
     config = ConfidenceSequenceConfig(
         **{**basic_config.model_dump(), "boundary_type": boundary_type}
     )

@@ -1,3 +1,13 @@
+"""
+References:
+Sequential estimation of quantiles with applications to A/B testing and best-arm identification,
+Steven R. Howard and Aaditya Ramdas (2022 version 5) - https://arxiv.org/pdf/1906.09712
+
+https://github.com/gostevehoward/confseq quantiles.cpp
+
+"""
+
+
 import numpy as np
 from typing import Tuple, Callable
 from scipy import optimize
@@ -6,7 +16,9 @@ from expectation.modules.martingales import BetaBinomialMixture
 
 
 class QuantileABTest:
-    """Implementation of quantile A/B testing."""
+    """
+    Implementation of quantile A/B testing.
+    """
     
     def __init__(self, quantile_p: float, t_opt: int, alpha_opt: float,
                  arm1_os: OrderStatisticInterface, arm2_os: OrderStatisticInterface):
@@ -20,11 +32,9 @@ class QuantileABTest:
         self.arm2_os = arm2_os
     
     def p_value(self) -> float:
-        """Calculate p-value."""
         return min(1.0, np.exp(-self.log_superMG_lower_bound()))
     
     def log_superMG_lower_bound(self) -> float:
-        """Calculate lower bound of log supermartingale."""
         arm1_G = self.get_G_fn(1)
         arm2_G = self.get_G_fn(2)
         
@@ -34,7 +44,6 @@ class QuantileABTest:
             return self.find_log_superMG_lower_bound(arm2_G, arm1_G, 1)
     
     def get_G_fn(self, arm: int) -> Tuple[Callable[[float], float], float, float]:
-        """Get G function for given arm."""
         def objective(a: float) -> float:
             return self.arm_log_superMG(arm, a)
         
@@ -62,7 +71,6 @@ class QuantileABTest:
         second_arm_G: Tuple[Callable[[float], float], float, float],
         second_arm: int
     ) -> float:
-        """Find lower bound of log supermartingale."""
         G1, _, _ = first_arm_G
         G2, x2_lower, x2_upper = second_arm_G
         
@@ -84,13 +92,11 @@ class QuantileABTest:
         return min_value
     
     def arm_log_superMG(self, arm: int, prop_below: float) -> float:
-        """Calculate arm log supermartingale."""
         N = self.order_stats(arm).size()
         s = (prop_below - self.quantile_p) * N
         v = self.quantile_p * (1 - self.quantile_p) * N
         return self.mixture.log_superMG(s, v)
     
     def order_stats(self, arm: int) -> OrderStatisticInterface:
-        """Get order statistics for given arm."""
         assert arm in (1, 2)
         return self.arm1_os if arm == 1 else self.arm2_os

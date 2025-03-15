@@ -7,6 +7,13 @@ Merging sequential e-values via martingales, V. Vovk, R. Wang (2024) - https://a
 
 Time-uniform central limit theory and asymptotic confidence sequences, I. Waudby-Smith, D. Arbour, R. Sinha, E.H Kennedy, A. Ramdas (2021) - https://arxiv.org/pdf/2103.06476
 """
+# Translatend from https://github.com/gostevehoward/confseq boundaries.cpp
+# Howard, S. R., Waudby-Smith, I. and Ramdas, A. (2019-), ConfSeq: software for confidence sequences and uniform boundaries, https://github.com/gostevehoward/confseq [Online; accessed ].
+
+# Using numpy and scipy for math functions
+# Boosts special functions -> Scipy equivalents
+# Numpy arrays for vectorized calculations
+# Scipy optimize for root finding
 
 
 import numpy as np
@@ -14,25 +21,23 @@ from scipy import special, optimize, stats
 from abc import ABC, abstractmethod
 
 class MixtureSupermartingale(ABC):
-    """Abstract base class for mixture supermartingales."""
-    
+    """
+    Abstract base class for mixture supermartingales.
+    """
+
     @abstractmethod
     def log_superMG(self, s: float, v: float) -> float:
-        """Calculate log of supermartingale."""
         pass
     
     @abstractmethod
     def s_upper_bound(self, v: float) -> float:
-        """Calculate upper bound for s."""
         pass
     
     @abstractmethod
     def bound(self, v: float, log_threshold: float) -> float:
-        """Calculate bound given v and log threshold."""
         pass
 
 def find_s_upper_bound(mixture: MixtureSupermartingale, v: float, log_threshold: float) -> float:
-    """Find upper bound for s using trial expansion."""
     trial_upper_bound = float(v)
     for _ in range(50):
         if mixture.log_superMG(trial_upper_bound, v) > log_threshold:
@@ -41,7 +46,6 @@ def find_s_upper_bound(mixture: MixtureSupermartingale, v: float, log_threshold:
     raise RuntimeError("Failed to find upper limit for mixture bound")
 
 def find_mixture_bound(mixture: MixtureSupermartingale, v: float, log_threshold: float) -> float:
-    """Find mixture bound using binary search."""
     def root_fn(s: float) -> float:
         return mixture.log_superMG(s, v) - log_threshold
 
@@ -56,8 +60,6 @@ def find_mixture_bound(mixture: MixtureSupermartingale, v: float, log_threshold:
     return result
 
 class TwoSidedNormalMixture(MixtureSupermartingale):
-    """Implementation of two-sided normal mixture."""
-    
     def __init__(self, v_opt: float, alpha_opt: float):
         assert v_opt > 0
         self.rho = self.best_rho(v_opt, alpha_opt)
@@ -78,8 +80,6 @@ class TwoSidedNormalMixture(MixtureSupermartingale):
         return v / (2 * np.log(1/alpha) + np.log(1 + 2 * np.log(1/alpha)))
 
 class OneSidedNormalMixture(MixtureSupermartingale):
-    """Implementation of one-sided normal mixture."""
-    
     def __init__(self, v_opt: float, alpha_opt: float):
         self.rho = self.best_rho(v_opt, alpha_opt)
     
@@ -99,8 +99,6 @@ class OneSidedNormalMixture(MixtureSupermartingale):
         return TwoSidedNormalMixture.best_rho(v, 2 * alpha)
 
 class GammaExponentialMixture(MixtureSupermartingale):
-    """Implementation of gamma-exponential mixture."""
-    
     def __init__(self, v_opt: float, alpha_opt: float, c: float):
         self.rho = OneSidedNormalMixture.best_rho(v_opt, alpha_opt)
         self.c = c
@@ -130,8 +128,6 @@ class GammaExponentialMixture(MixtureSupermartingale):
         return find_mixture_bound(self, v, log_threshold)
 
 class GammaPoissonMixture(MixtureSupermartingale):
-    """Implementation of gamma-Poisson mixture."""
-    
     def __init__(self, v_opt: float, alpha_opt: float, c: float):
         self.rho = OneSidedNormalMixture.best_rho(v_opt, alpha_opt)
         self.c = c
@@ -161,8 +157,6 @@ class GammaPoissonMixture(MixtureSupermartingale):
         return find_mixture_bound(self, v, log_threshold)
 
 class BetaBinomialMixture(MixtureSupermartingale):
-    """Implementation of beta-binomial mixture."""
-    
     def __init__(self, v_opt: float, alpha_opt: float, g: float, h: float, is_one_sided: bool):
         assert g > 0 and h > 0
         self.g = g
@@ -203,8 +197,6 @@ class BetaBinomialMixture(MixtureSupermartingale):
         return find_mixture_bound(self, v, log_threshold)
 
 class PolyStitchingBound:
-    """Implementation of polynomial stitching bound."""
-    
     def __init__(self, v_min: float, c: float, s: float, eta: float):
         assert v_min > 0
         self.v_min = v_min
@@ -223,8 +215,6 @@ class PolyStitchingBound:
         return np.sqrt(self.k1 * self.k1 * use_v * ell + term2 * term2) + term2
 
 class EmpiricalProcessLILBound:
-    """Implementation of empirical process LIL bound."""
-    
     def __init__(self, alpha: float, t_min: float, A: float):
         assert A > 1/np.sqrt(2)
         assert t_min >= 1
@@ -268,11 +258,9 @@ class EmpiricalProcessLILBound:
     
 
 def log_beta(a: float, b: float) -> float:
-    """Compute logarithm of beta function."""
     return special.gammaln(a) + special.gammaln(b) - special.gammaln(a + b)
 
 def log_incomplete_beta(a: float, b: float, x: float) -> float:
-    """Compute logarithm of incomplete beta function."""
     if x == 1:
         return log_beta(a, b)
     return np.log(special.betainc(a, b, x)) + log_beta(a, b)

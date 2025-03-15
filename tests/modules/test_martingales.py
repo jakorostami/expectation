@@ -7,7 +7,6 @@ from expectation.modules.martingales import (
 
 class TestMixtureMartingales:
     def test_normal_mixture(self):
-        """Test normal mixture supermartingale properties."""
         # Test one-sided
         one_sided = OneSidedNormalMixture(v_opt=1.0, alpha_opt=0.05)
         
@@ -30,7 +29,6 @@ class TestMixtureMartingales:
         assert np.mean(np.exp(two_sided_values)) <= 2
         
     def test_beta_binomial_mixture(self):
-        """Test beta-binomial mixture properties."""
         mixture = BetaBinomialMixture(
             v_opt=1.0,
             alpha_opt=0.05,
@@ -55,7 +53,6 @@ class TestMixtureMartingales:
         assert bound > 0
         
     def test_gamma_exponential_mixture(self):
-        """Test gamma-exponential mixture properties."""
         mixture = GammaExponentialMixture(
             v_opt=1.0,
             alpha_opt=0.05,
@@ -74,7 +71,6 @@ class TestMixtureMartingales:
         assert all(not np.isinf(v) for v in log_values)
         
     def test_mixture_bounds(self):
-        """Test bound computation for all mixtures."""
         mixtures = [
             OneSidedNormalMixture(1.0, 0.05),
             TwoSidedNormalMixture(1.0, 0.05),
@@ -98,7 +94,6 @@ class TestMixtureMartingales:
     (2.0, 0.1)
 ])
 def test_mixture_parameters(v_opt, alpha_opt):
-    """Test mixture behavior with different parameters."""
     # One-sided normal
     one_sided = OneSidedNormalMixture(v_opt, alpha_opt)
     # Two-sided normal
