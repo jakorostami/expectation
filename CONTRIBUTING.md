@@ -115,6 +115,8 @@ It is the work of the following people this library is focused around so it is w
 [Alexander Ly](https://www.alexander-ly.com) <br>
 [Ruodu Wang](https://sas.uwaterloo.ca/~wang/) <br>
 [Hongjian Wang](https://wanghongjian.wordpress.com) <br>
+[Ian Waudby-Smith](https://ianws.com) <br>
+
 
 ## Recognition ⭐
 
