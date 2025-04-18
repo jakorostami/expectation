@@ -2,7 +2,7 @@
 
 A Python library for sequential testing and monitoring using e-values and e-processes. Based on modern developments in game-theoretic statistics, `expectation` provides valid inference at any stopping time, making it ideal for continuous monitoring and sequential analysis.
 
-⚠️ **Pre-release Software Notice**: This library is currently in pre-release (v0.2.2). The repo may undergo significant changes before the 1.0.0 release. While the statistical implementations are sound, we recommend testing thoroughly before using in production environments.
+⚠️ **Pre-release Software Notice**: This library is currently in pre-release (v0.2.3). The repo may undergo significant changes before the 1.0.0 release. While the statistical implementations are sound, we recommend testing thoroughly before using in production environments.
 
 ## Why use Expectation?
 
