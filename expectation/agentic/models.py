@@ -1,4 +1,3 @@
-# expectation/agentic/models.py
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Union, Literal
 from enum import Enum
