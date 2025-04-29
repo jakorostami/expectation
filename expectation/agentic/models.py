@@ -69,14 +69,35 @@ class TestState(BaseModel):
     
     model_config = ConfigDict(frozen=True)
 
+class ECalibrationMethod(str, Enum):
+    KAPPA = "kappa"
+    INTEGRAL = "integral"
+
 class AgentConfig(BaseModel):
     significance_level: float = Field(default=0.05, gt=0, lt=1)
     max_iterations: int = Field(default=5, gt=0)
     timeout: float = Field(default=60.0, gt=0, description="Timeout for test execution in seconds")
     domain: str = Field(default="general", description="Domain of the hypothesis")
+    
     combine_method: Literal["product", "fisher", "e_calibrator"] = Field(
         default="product", 
         description="Method for combining e-values"
+    )
+    e_calibrator_method: ECalibrationMethod = Field(
+        default=ECalibrationMethod.KAPPA,
+        description="Method for e-value calibration when using e_calibrator"
+    )
+    kappa: float = Field(
+        default=0.5, 
+        description="Kappa parameter for e-calibrator (when using kappa method)"
+    )
+    parallel_testing: bool = Field(
+        default=False,
+        description="Whether to run tests in parallel rather than sequentially"
+    )
+    max_parallel_tests: int = Field(
+        default=3,
+        description="Maximum number of parallel tests to run simultaneously"
     )
     
     model_config = ConfigDict(frozen=True)
