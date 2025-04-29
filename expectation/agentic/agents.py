@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Tuple, Protocol, TypeVar
+from typing import Dict, Tuple, Protocol, TypeVar
 import pandas as pd
-import numpy as np
 from expectation.agentic.models import (
     TestProposal,
     TestResult,
