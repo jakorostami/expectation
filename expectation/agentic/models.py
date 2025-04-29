@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime
 
 class TestFamily(str, Enum):
-    """Test families available in expectation."""
     SEQUENTIAL_E_TEST = "sequential_e_test"
     UNIVERSAL_T_TEST = "universal_t_test"
     SYMMETRY_TEST = "symmetry_test"
@@ -14,26 +13,22 @@ class TestFamily(str, Enum):
     E_PROCESS = "e_process"
 
 class SequentialTestType(str, Enum):
-    """Types of sequential tests in expectation."""
     MEAN = "mean"
     PROPORTION = "proportion"
     VARIANCE = "variance"
     QUANTILE = "quantile"
 
 class SymmetryType(str, Enum):
-    """Types of symmetry tests in expectation."""
     FISHER = "fisher"
     SIGN = "sign"
     WILCOXON = "wilcoxon"
 
 class AlternativeType(str, Enum):
-    """Alternative hypothesis types."""
     TWO_SIDED = "two_sided"
     GREATER = "greater"
     LESS = "less"
 
 class TestProposal(BaseModel):
-    """A proposed statistical test for hypothesis falsification."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str = Field(description="Descriptive name of the test")
     description: str = Field(description="Detailed description of the test's purpose")
@@ -50,7 +45,6 @@ class TestProposal(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 class TestResult(BaseModel):
-    """Result of a statistical test execution."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     proposal_id: str = Field(description="ID of the corresponding test proposal")
     p_value: Optional[float] = Field(description="P-value from the test (if available)")
@@ -63,7 +57,6 @@ class TestResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 class TestState(BaseModel):
-    """State of the sequential falsification testing process."""
     hypothesis: str = Field(description="The scientific hypothesis being tested")
     iteration: int = Field(default=0, description="Current iteration number")
     proposals: List[TestProposal] = Field(default_factory=list, description="Test proposals")
@@ -77,7 +70,6 @@ class TestState(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 class AgentConfig(BaseModel):
-    """Configuration for the sequential falsification testing process."""
     significance_level: float = Field(default=0.05, gt=0, lt=1)
     max_iterations: int = Field(default=5, gt=0)
     timeout: float = Field(default=60.0, gt=0, description="Timeout for test execution in seconds")
