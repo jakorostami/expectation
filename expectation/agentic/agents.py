@@ -6,7 +6,7 @@ from expectation.agentic.models import (
     TestProposal,
     TestResult,
     TestState,
-    TestConfig,
+    AgentConfig,
 )
 
 T = TypeVar("T")
@@ -26,7 +26,7 @@ class DesignerAgent(Agent[TestProposal]):
     Agent that proposes new tests based on the current state and data.
     """
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: AgentConfig):
         self.config = config
 
     @abstractmethod
@@ -39,7 +39,7 @@ class ExecutionAgent(Agent[TestResult]):
     Agent that executes tests based on the current state and data.
     """
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: AgentConfig):
         self.config = config
 
     @abstractmethod
@@ -52,7 +52,7 @@ class EvaluationAgent(Agent[Tuple[bool, float, str]]):
     Agent responsible for evaluating the test results
     """
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: AgentConfig):
         self.config = config
 
     @abstractmethod
