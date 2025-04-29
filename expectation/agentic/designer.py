@@ -258,3 +258,58 @@ class RuleBasedDesignerAgent(DesignerAgent):
 
         
 
+class LLMDesignerAgent(DesignerAgent):
+    """
+    LLM-based designer agent.
+    
+    Uses a language model to propose statistical tests based on
+    the hypothesis and data context.
+    """
+    
+    def __init__(self, config: AgentConfig, llm_provider: str = "openai", model_name: str = "gpt-4"):
+        super().__init__(config)
+        self.llm_provider = llm_provider
+        self.model_name = model_name
+        self._initialize_llm()
+    
+    def _initialize_llm(self):
+        """Initialize the LLM client."""
+        if self.llm_provider == "openai":
+            import openai
+            self.client = openai.OpenAI()
+        elif self.llm_provider == "anthropic":
+            import anthropic
+            self.client = anthropic.Anthropic()
+        else:
+            raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
+    
+    def process(self, state: TestState, data: Dict[str, pd.DataFrame]) -> TestProposal:
+        """
+        Propose a test using LLM.
+        
+        Args:
+            state: Current test state
+            data: Dictionary of dataframes
+            
+        Returns:
+            A test proposal
+        """
+        # Create data context
+        data_context = self._create_data_context(data)
+        
+        # Create prompt
+        prompt = self._create_proposal_prompt(state, data_context)
+        
+        # Generate response from LLM and parse to TestProposal
+        # Implementation details would depend on the specific LLM API
+        pass
+    
+    def _create_data_context(self, data: Dict[str, pd.DataFrame]) -> str:
+        """Create a description of the data for context."""
+        # Creates a text description of the dataframes and their contents
+        pass
+    
+    def _create_proposal_prompt(self, state: TestState, data_context: str) -> str:
+        """Create a prompt for the LLM."""
+        # Creates a prompt asking for a test proposal
+        pass
