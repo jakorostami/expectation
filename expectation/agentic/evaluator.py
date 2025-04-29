@@ -1,8 +1,9 @@
+# expectation/agentic/evaluator.py (updated with detailed e-value combination)
 from typing import Dict, List, Tuple
 import pandas as pd
 import numpy as np
 import scipy.stats
-from expectation.agentic.models import TestState, AgentConfig, ECalibrationMethod
+from .models import TestState, AgentConfig, ECalibrationMethod
 from expectation.agentic.agents import EvaluationAgent
 from expectation.modules.epower import EPowerCalculator
 
@@ -19,23 +20,39 @@ class StandardEvaluatorAgent(EvaluationAgent):
         self.e_power_calculator = EPowerCalculator()
     
     def process(self, state: TestState, data: Dict[str, pd.DataFrame]) -> Tuple[bool, float, str]:
-
+        """
+        Evaluate test results.
+        
+        Args:
+            state: Current test state
+            data: Dictionary of dataframes
+            
+        Returns:
+            Tuple of (conclusion, confidence, reasoning)
+        """
         if not state.results:
             return None, 0.0, "No test results available for evaluation"
         
+        # Extract e-values from results
         e_values = [result.e_value for result in state.results]
         
+        # Combine e-values based on the configured method
         combined_e_value = self._combine_e_values(e_values)
         
+        # Calculate e-power to measure evidence growth rate
         e_power_result = self.e_power_calculator.compute(np.array(e_values))
         
+        # Determine if we have sufficient evidence
         alpha = self.config.significance_level
         is_significant = combined_e_value >= 1/alpha
         
+        # Calculate confidence (1 - 1/e_value is a valid confidence level)
         confidence = 1.0 - (1.0 / combined_e_value) if combined_e_value > 1.0 else 0.0
         
+        # Generate detailed reasoning with method-specific insights
         method_description = self._get_method_description()
         
+        # Determine conclusion
         if is_significant:
             conclusion = True
             reasoning = (
@@ -62,11 +79,20 @@ class StandardEvaluatorAgent(EvaluationAgent):
         return conclusion, confidence, reasoning
     
     def _combine_e_values(self, e_values: List[float]) -> float:
-
+        """
+        Combine e-values using the configured method.
+        
+        Args:
+            e_values: List of e-values to combine
+            
+        Returns:
+            Combined e-value
+        """
         if not e_values:
             return 1.0
             
         if self.config.combine_method == "product":
+            # Simple product rule (valid for any e-values)
             return np.prod(e_values)
             
         elif self.config.combine_method == "fisher":
@@ -82,6 +108,7 @@ class StandardEvaluatorAgent(EvaluationAgent):
             return 1.0 / max(combined_p_value, 1e-10)
             
         else:  # e_calibrator
+            # E-value calibrator methods
             p_values = [min(1.0, 1.0/e) for e in e_values]
             
             if self.config.e_calibrator_method == ECalibrationMethod.KAPPA:
@@ -92,7 +119,7 @@ class StandardEvaluatorAgent(EvaluationAgent):
                 
             else:  # integral calibrator
                 # Integral-calibrator (more sophisticated)
-                # Formula: (1 - p + p*log(p))/(p*(-log(p))^2)
+                # Formula: (1 - p + p*log(p))/(p*(-log(p))²)
                 e_calibrated = []
                 for p in p_values:
                     if p <= 0 or p >= 1:
@@ -105,7 +132,12 @@ class StandardEvaluatorAgent(EvaluationAgent):
                 return np.prod(e_calibrated)
     
     def _get_method_description(self) -> str:
-
+        """
+        Get a description of the current combination method.
+        
+        Returns:
+            String description of the method
+        """
         if self.config.combine_method == "product":
             return "product method"
         elif self.config.combine_method == "fisher":
