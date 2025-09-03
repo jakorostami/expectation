@@ -5,6 +5,7 @@ import pandas as pd
 from typing import List, Dict, Optional, Union, Tuple
 import plotly.io as pio
 import plotly.express as px
+import warnings
 
 pio.templates.default = "plotly_white"
 
@@ -1247,3 +1248,164 @@ def plot_combined_dashboard(
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+
+def check_and_return_esmin_parameter_side(param_to_check, alternative, es_min_name="noName", param_domain=None):
+    """
+    Validate and adjust the effect size parameter based on the test alternative.
+    
+    This function matches the R version behavior by automatically adjusting
+    invalid parameters with warnings rather than raising errors.
+    
+    Parameters
+    ----------
+    param_to_check : float
+        The parameter value to check and potentially adjust
+    alternative : str
+        The test alternative: "twoSided", "greater", or "less"
+    es_min_name : str, optional
+        Name of the parameter type. Options:
+        "noName", "meanDiffMin", "phiS", "deltaMin", "deltaS", 
+        "hrMin", "thetaS", "deltaTrue", "g", "kappaG"
+        Default is "noName"
+    param_domain : str, optional
+        Domain constraint for the parameter. Will be inferred from es_min_name if not provided.
+        
+    Returns
+    -------
+    float
+        The validated and potentially adjusted parameter value
+        
+    Raises
+    ------
+    ValueError
+        If alternative is invalid
+    ValueError
+        If parameter violates hard constraints (e.g., negative g, thetaS, hrMin, kappaG)
+    """
+    
+    # Validate alternative
+    valid_alternatives = ["twoSided", "greater", "less"]
+    if alternative not in valid_alternatives:
+        raise ValueError(f"Alternative must be one of {valid_alternatives}, got '{alternative}'")
+    
+    # Validate es_min_name
+    valid_es_min_names = ["noName", "meanDiffMin", "phiS", "deltaMin", "deltaS", 
+                          "hrMin", "thetaS", "deltaTrue", "g", "kappaG"]
+    if es_min_name not in valid_es_min_names:
+        raise ValueError(f"es_min_name must be one of {valid_es_min_names}, got '{es_min_name}'")
+    
+    # Handle twoSided case first
+    if alternative == "twoSided":
+        if param_to_check == 0:
+            raise ValueError("Parameter cannot be zero for twoSided test")
+        if es_min_name in ["meanDiffMin", "deltaMin", "deltaTrue"]:
+            return abs(param_to_check)
+        return param_to_check
+    
+    # Determine parameter domain and names based on es_min_name
+    if es_min_name == "noName":
+        param_name = None
+        hyp_param_name = "test relevant parameter"
+        param_domain = param_domain or "unknown"
+    elif es_min_name == "phiS" or es_min_name == "meanDiffMin":
+        param_name = es_min_name
+        hyp_param_name = "meanDiff"
+        param_domain = param_domain or "realNumbers"
+    elif es_min_name in ["deltaS", "deltaMin", "deltaTrue"]:
+        param_name = es_min_name
+        hyp_param_name = "delta"
+        param_domain = param_domain or "realNumbers"
+    elif es_min_name == "thetaS" or es_min_name == "hrMin":
+        param_name = es_min_name
+        hyp_param_name = "theta"
+        param_domain = param_domain or "positiveNumbers"
+        if param_to_check <= 0:
+            raise ValueError(f"{param_name} must be strictly positive")
+        
+        # Hard constraint: these must be positive
+        if param_to_check < 0:
+            raise ValueError("thetaS and hrMin must be positive")
+    elif es_min_name == "g":
+        param_name = es_min_name
+        hyp_param_name = "g"
+        param_domain = param_domain or "positiveNumbers"
+        if param_to_check <= 0:
+            raise ValueError("The parameter g must be strictly positive")
+        
+        # Hard constraint: g must be positive
+        if param_to_check < 0:
+            raise ValueError("The parameter g must be positive")
+    elif es_min_name == "kappaG":
+        param_name = es_min_name
+        hyp_param_name = "kappaG"
+        param_domain = param_domain or "positiveNumbers"
+        if param_to_check <= 0:
+            raise ValueError("The parameter kappaG must be strictly positive")
+        
+        # Hard constraint: kappaG must be positive
+        if param_to_check < 0:
+            raise ValueError("The parameter kappaG must be positive")
+    else:
+        param_name = es_min_name
+        hyp_param_name = "testRelevantParameter"
+        param_domain = param_domain or "unknown"
+    
+    # Set param_name for warning messages
+    if param_name is None:
+        param_name = "the savi test defining parameter"
+    
+    # Handle parameter adjustments based on domain
+    if param_domain == "unknown":
+        if alternative == "greater" and param_to_check < 0:
+             raise ValueError(
+            'The savi test defining parameter is incongruent with alternative "greater". '
+            "Parameter must be non-negative."
+            )
+
+        if alternative == "less" and param_to_check > 0:
+            raise ValueError(
+            'The savi test defining parameter is incongruent with alternative "less". '
+            "Parameter must be non-positive."
+            )
+            
+    elif param_domain == "realNumbers":
+        if alternative == "greater" and param_to_check < 0:
+            raise ValueError(f"{param_name} must be non-negative for alternative='greater'")
+        
+        if alternative == "less" and param_to_check > 0:
+            raise ValueError(f"{param_name} must be non-positive for alternative='less'")
+                    
+    elif param_domain == "positiveNumbers":
+        if alternative == "greater" and param_to_check < 1:
+            raise ValueError(
+            f"{param_name} incongruent with alternative 'greater'. "
+            f"Expected {hyp_param_name} > 1, but got {param_to_check}"
+            )
+            
+        if alternative == "less" and param_to_check > 1:
+            raise ValueError(
+            f"{param_name} incongruent with alternative 'less'. "
+            f"Expected {hyp_param_name} < 1, but got {param_to_check}"
+            )
+        
+    return param_to_check
+
+
+def effective_sample_size(n1, n2=None, paired=False ):
+    """
+    Compute effective sample size 
+    n1: sample size of group 1
+    n2: sample size of group 2
+    paired: boolean, if data is paird, nEff = n1
+    """    
+    if n1<=0:
+        raise ValueError("n1 must be positive")
+    if n2 is not None and n2 <=0:
+        raise ValueError("n2 must be positive")
+    if n2 is None or paired:
+        return n1
+    
+    
+    return 1.0/(1.0/n1 + 1.0/n2)
+
