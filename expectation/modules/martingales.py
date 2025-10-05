@@ -296,14 +296,14 @@ def log_incomplete_beta(a: float, b: float, x: float) -> float:
 
 ### combiners
 class AllInCombiner(SequentialEValueCombiner):
-    """All-in betting: λ_t = 1 for all t (Proposition 7.20)"""
+    """All-in betting: lambda_t = 1 for all t (Proposition 7.20)"""
     
     def compute_lambda(self, past_e_values: List[float], t: int) -> float:
         return 1.0
 
 
 class ConservativeCombiner(SequentialEValueCombiner):
-    """Conservative betting with fixed λ < 1"""
+    """Conservative betting with fixed lambda < 1"""
     
     def __init__(self, lambda_fixed: float = 0.5):
         if not 0 < lambda_fixed <= 1:
@@ -370,7 +370,7 @@ class LogOptimalCombiner(SequentialEValueCombiner):
     def __init__(self, expectation_function: Callable[[float, List[float], int], float]):
         """
         Args:
-            expectation_function: Function(lambda, past_e_values, t) → E_Q[log((1-lambda) + lambdaE_t) | F_{t-1}]
+            expectation_function: Function(lambda, past_e_values, t) -> E_Q[log((1-lambda) + lambdaE_t) | F_{t-1}]
         """
         self.expectation_function = expectation_function
     
