@@ -27,10 +27,10 @@ def plot_sequential_test_plotly(
     history_df : pd.DataFrame
         DataFrame containing test history with columns:
         - step: test step number
-        - eValue: individual e-values
-        - cumulativeEValue: cumulative e-values
-        - ePower: e-power values (optional)
-        - pValue: p-values (optional)
+        - e_value: individual e-values
+        - cumulative_e_value: cumulative e-values
+        - e_power: e-power values (optional)
+        - p_value: p-values (optional)
         - observations: observed values
     alpha : float
         Significance level (default 0.05)
@@ -103,8 +103,8 @@ def plot_sequential_test_plotly(
         plot_bgcolor = colors['background']
         paper_bgcolor = '#FFFFFF'
     
-    has_epower = 'ePower' in history_df.columns and show_epower
-    has_pvalue = 'pValue' in history_df.columns and show_pvalue
+    has_epower = 'e_power' in history_df.columns and show_epower
+    has_pvalue = 'p_value' in history_df.columns and show_pvalue
     
     num_rows = 3  # e-values, cumulative e-values, observations are always included
     if has_epower:
@@ -166,7 +166,7 @@ def plot_sequential_test_plotly(
     fig.add_trace(
         go.Scatter(
             x=history_df['step'],
-            y=history_df['eValue'],
+            y=history_df['e_value'],
             mode='lines+markers',
             name='E-value',
             line={'color': colors['e_value'], 'width': 2, 'shape': 'spline'},
@@ -205,7 +205,7 @@ def plot_sequential_test_plotly(
     fig.add_trace(
         go.Scatter(
             x=history_df['step'],
-            y=history_df['cumulativeEValue'],
+            y=history_df['cumulative_e_value'],
             mode='lines+markers',
             name='Cumulative E-value',
             line={'color': colors['cumulative'], 'width': 2, 'shape': 'spline'},
@@ -243,7 +243,7 @@ def plot_sequential_test_plotly(
         fig.add_trace(
             go.Scatter(
                 x=history_df['step'],
-                y=100 * history_df['ePower'].fillna(0),
+                y=100 * history_df['e_power'].fillna(0),
                 mode='lines+markers',
                 name='E-power',
                 line={'color': colors['e_power'], 'width': 2, 'shape': 'spline'},
@@ -270,7 +270,7 @@ def plot_sequential_test_plotly(
         fig.add_trace(
             go.Scatter(
                 x=history_df['step'],
-                y=100 * history_df['pValue'],
+                y=100 * history_df['p_value'],
                 mode='lines+markers',
                 name='p-value',
                 line={'color': colors['p_value'], 'width': 2, 'shape': 'spline'},
@@ -454,8 +454,8 @@ def plot_sequential_comparison_plotly(
         text_color = '#000000'
         paper_bgcolor = '#FFFFFF'
     
-    has_epower = all('ePower' in df.columns for df in history_dfs)
-    has_pvalue = all('pValue' in df.columns for df in history_dfs)
+    has_epower = all('e_power' in df.columns for df in history_dfs)
+    has_pvalue = all('p_value' in df.columns for df in history_dfs)
     
     num_rows = 3  # e-values, cumulative e-values, observations distribution are always included
     if has_epower:
@@ -516,7 +516,7 @@ def plot_sequential_comparison_plotly(
         fig.add_trace(
             go.Scatter(
                 x=df['step'],
-                y=df['eValue'],
+                y=df['e_value'],
                 mode='lines+markers',
                 name=f"{label} - E-value",
                 line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
@@ -556,7 +556,7 @@ def plot_sequential_comparison_plotly(
         fig.add_trace(
             go.Scatter(
                 x=df['step'],
-                y=df['cumulativeEValue'],
+                y=df['cumulative_e_value'],
                 mode='lines+markers',
                 name=f"{label} - Cumulative",
                 line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
@@ -596,7 +596,7 @@ def plot_sequential_comparison_plotly(
             fig.add_trace(
                 go.Scatter(
                     x=df['step'],
-                    y=100 * df['ePower'].fillna(0),
+                    y=100 * df['e_power'].fillna(0),
                     mode='lines+markers',
                     name=f"{label} - E-power",
                     line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
@@ -625,7 +625,7 @@ def plot_sequential_comparison_plotly(
             fig.add_trace(
                 go.Scatter(
                     x=df['step'],
-                    y=100 * df['pValue'],
+                    y=100 * df['p_value'],
                     mode='lines+markers',
                     name=f"{label} - p-value",
                     line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
@@ -835,9 +835,9 @@ def plot_combined_dashboard(
         paper_bgcolor = '#FFFFFF'
         plot_bgcolor = colors['background']
 
-    has_epower = 'ePower' in history_df.columns
-    has_pvalue = 'pValue' in history_df.columns
-    reject_null = history_df['cumulativeEValue'].iloc[-1] >= 1/alpha if not history_df.empty else False
+    has_epower = 'e_power' in history_df.columns
+    has_pvalue = 'p_value' in history_df.columns
+    reject_null = history_df['cumulative_e_value'].iloc[-1] >= 1/alpha if not history_df.empty else False
 
     fig = make_subplots(
         rows=4, cols=3,
@@ -893,21 +893,21 @@ def plot_combined_dashboard(
     
     # ---- Row 1: Header with summary statistics ----
     if not history_df.empty:
-        latest_e_value = history_df['eValue'].iloc[-1]
-        cumulative_e_value = history_df['cumulativeEValue'].iloc[-1]
-        latest_p_value = history_df['pValue'].iloc[-1] if has_pvalue else None
-        latest_e_power = history_df['ePower'].iloc[-1] if has_epower else None
+        latest_e_value = history_df['e_value'].iloc[-1]
+        cumulative_e_value = history_df['cumulative_e_value'].iloc[-1]
+        latest_p_value = history_df['p_value'].iloc[-1] if has_pvalue else None
+        latest_e_power = history_df['e_power'].iloc[-1] if has_epower else None
         total_steps = history_df['step'].max()
         total_observations = sum(len(obs) for obs in history_df['observations'])
 
-        mean_e_value = history_df['eValue'].mean()
-        max_e_value = history_df['eValue'].max()
+        mean_e_value = history_df['e_value'].mean()
+        max_e_value = history_df['e_value'].max()
         observations_mean = np.mean(np.concatenate(history_df['observations'].values))
         observations_std = np.std(np.concatenate(history_df['observations'].values))
 
         recent_steps = 10 if len(history_df) >= 10 else len(history_df)
         recent_data = history_df.tail(recent_steps)
-        recent_e_mean = recent_data['eValue'].mean()
+        recent_e_mean = recent_data['e_value'].mean()
         recent_e_trend = "↑" if recent_e_mean > mean_e_value else "↓"
 
         summary_text = f"""
@@ -991,7 +991,7 @@ def plot_combined_dashboard(
     fig.add_trace(
         go.Scatter(
             x=history_df['step'],
-            y=history_df['eValue'],
+            y=history_df['e_value'],
             mode='lines+markers',
             name='E-value',
             line={'color': colors['e_value'], 'width': 2, 'shape': 'spline'},
@@ -1040,7 +1040,7 @@ def plot_combined_dashboard(
     fig.add_trace(
         go.Scatter(
             x=history_df['step'],
-            y=history_df['cumulativeEValue'],
+            y=history_df['cumulative_e_value'],
             mode='lines+markers',
             name='Cumulative E-value',
             line={'color': colors['cumulative'], 'width': 2, 'shape': 'spline'},
@@ -1074,7 +1074,7 @@ def plot_combined_dashboard(
         fig.add_trace(
             go.Scatter(
                 x=history_df['step'],
-                y=100 * history_df['ePower'].fillna(0),
+                y=100 * history_df['e_power'].fillna(0),
                 mode='lines+markers',
                 name='E-power',
                 line={'color': colors['e_power'], 'width': 2, 'shape': 'spline'},
@@ -1099,7 +1099,7 @@ def plot_combined_dashboard(
         fig.add_trace(
             go.Scatter(
                 x=history_df['step'],
-                y=100 * history_df['pValue'],
+                y=100 * history_df['p_value'],
                 mode='lines+markers',
                 name='p-value',
                 line={'color': colors['p_value'], 'width': 2, 'shape': 'spline'},
