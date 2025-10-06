@@ -296,7 +296,7 @@ class TestSequentialTesting:
             data = np.random.normal(0.5, 1.0, 50)
             result = test.update(data)
 
-            results[strategy_name] = result.e_value
+            results[strategy_name] = result.e_process.cumulative_value
 
             if strategy_name != "all_in":
                 assert hasattr(test.e_process, 'lambdas')
@@ -447,19 +447,23 @@ class TestSequentialTesting:
         )
 
         batch_sizes = [10, 20, 30]
-        raw_e_values = []
+        sequential_e_values = []
         cumulative_e_values = []
         for batch_size in batch_sizes:
             data = np.random.normal(0.0, 1.0, batch_size)
             result = test.update(data)
-            cumulative_e_values.append(result.e_value)
+            sequential_e_values.append(result.e_value)
+            cumulative_e_values.append(result.e_process.cumulative_value)
 
         assert len(test.e_process.values) == len(batch_sizes)
         raw_e_values = test.e_process.values
 
+        for i, seq_e in enumerate(sequential_e_values):
+            assert abs(raw_e_values[i] - seq_e) < 1e-10
+
         assert len(test.e_process.process_values) == len(batch_sizes) + 1
-        assert test.e_process.process_values[0] == 1.0  # Initial value
-        
+        assert test.e_process.process_values[0] == 1.0  # initial value
+
         expected_product = 1.0
         for i, raw_e in enumerate(raw_e_values):
             expected_product *= raw_e
