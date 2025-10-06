@@ -20,7 +20,6 @@ class TestEPower:
         assert result.type == EPowerType.STANDARD
     
     def test_epower_config_validation(self):
-        # Valid config
         config = EPowerConfig(
             type=EPowerType.STANDARD,
             grid_size=50

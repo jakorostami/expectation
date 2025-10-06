@@ -4,9 +4,15 @@ Based on these papers:
 Hypothesis testing with e-values, A. Ramdas, R. Wang (2024) - https://arxiv.org/pdf/2410.23614
 
 Safe Testing, P. Grünwald, R. de Heide, W.M Koolen (2019) - https://arxiv.org/pdf/1906.07801
+
+From Chapter 7 of "Hypothesis Testing with e-values" by Ramdas & Wang (2024).
+Implements:
+- Proposition 7.20: Product of sequential e-values (all-in strategy)
+- Definition 7.21(i): General e-process with betting fractions
+- Definition 7.21(iii): Empirically adaptive e-process
 """
 
-from typing import Optional, Callable, Sequence, ClassVar, List, Union, Tuple
+from typing import Optional, Callable, ClassVar, List, Union, Tuple
 from abc import ABC, abstractmethod
 import numpy as np
 from pydantic import BaseModel, Field, ConfigDict
@@ -16,6 +22,20 @@ from enum import Enum
 from expectation.modules.epower import (
     EPowerCalculator, EPowerConfig, EPowerType, EPowerResult
 )
+
+class BettingStrategy(str, Enum):
+    """
+    Betting strategies for constructing e-processes from sequential e-values.
+    
+    ALL_IN: lambda_t = 1 for all t (Proposition 7.20)
+    EMPIRICALLY_ADAPTIVE: lambda_t chosen adaptively (Definition 7.21(iii))
+    CONSERVATIVE: Fixed lambda < 1 to reduce variance
+    LOG_OPTIMAL: Known alternative Q (Definition 7.21(ii))
+    """
+    ALL_IN = "all_in"
+    EMPIRICALLY_ADAPTIVE = "empirically_adaptive"
+    CONSERVATIVE = "conservative"
+    LOG_OPTIMAL = "log_optimal"
 
 class SymmetryType(str, Enum):
     FISHER = "fisher"
@@ -45,6 +65,14 @@ class EValueResult(BaseModel):
     hypothesis: Hypothesis
     config: EValueConfig
     timestamp: float = Field(default_factory=lambda: np.datetime64('now').astype(float))
+
+# extending evalueconfig for betting strategies
+class EProcessConfig(EValueConfig):
+    betting_strategy: BettingStrategy = Field(default=BettingStrategy.ALL_IN)
+    gamma: float = Field(default=0.5, gt=0, le=1, description="For adaptive/conservative strategies")
+    conservative_lambda: float = Field(default=0.5, gt=0, le=1, description="Fixed lambda for conservative")
+    
+    model_config = ConfigDict(frozen=True)
 
 class EValue(ABC):
     config: ClassVar[EValueConfig] = EValueConfig()
@@ -113,21 +141,18 @@ class LikelihoodRatioEValue(EValue):
             ratios = self.alt_density(data) / self.null_density(data)
             return float(np.prod(ratios))
 
-class EProcess(BaseModel):    
+class EProcess(BaseModel):
     values: list[float] = Field(default_factory=list)
     cumulative_value: float = Field(default=1.0)
     total_samples: int = Field(default=0)
     config: EValueConfig
     
-    def update(self, e_value: float) -> float:
-        self.values.append(e_value)
-        self.cumulative_value *= e_value
-        self.total_samples += 1
-        return self.cumulative_value
+    lambdas: list[float] = Field(default_factory=list)
+    process_values: list[float] = Field(default_factory=lambda: [1.0])  # M_0, M_1, ...
+    log_process_values: list[float] = Field(default_factory=lambda: [0.0])  # log M_0, log M_1, ...
     
-    def is_significant(self, alpha: Optional[float] = None) -> bool:
-        alpha = alpha or self.config.significance_level
-        return self.cumulative_value >= 1/alpha
+
+    
 
 class UniversalEValue(EValue):
     class Config(BaseModel):

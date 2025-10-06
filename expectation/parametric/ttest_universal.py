@@ -32,7 +32,7 @@ import numpy as np
 from typing import Union, Tuple
 
 from expectation.modules.martingales import MixtureSupermartingale
-from expectation.seqtest.sequential_e_testing import SequentialTest, TestType, AlternativeType
+from expectation.seqtest.sequential_e_testing import SequentialTesting, TestType, AlternativeType
 from expectation.confseq.confidencesequence import ConfidenceSequence, ConfidenceSequenceConfig
 
 
@@ -148,7 +148,7 @@ class TtestFlatMixtureMartingale(MixtureSupermartingale):
         return radius
 
 # TODO: this is not usable yet, need to update the TestType config in sequential_e_testing.py
-def setup_ttest(test: SequentialTest):
+def setup_ttest(test: SequentialTesting):
 
     original_setup = test._setup_evaluator
     
@@ -317,14 +317,14 @@ def create_ttest(null_value: float = 0.0,
                 method: str = "universal_inference",
                 mixture_type: str = "gaussian",
                 prior_precision: float = 1.0,
-                alpha: float = 0.05) -> SequentialTest:
+                alpha: float = 0.05) -> SequentialTesting:
     config = {
         "ttest_method": method,
         "mixture_type": mixture_type,
         "prior_precision": prior_precision
     }
 
-    test = SequentialTest(
+    test = SequentialTesting(
         test_type=TestType.TTEST,
         null_value=null_value,
         alternative=alternative,

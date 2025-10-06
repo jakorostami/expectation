@@ -98,7 +98,8 @@ class PToECalibrator:
         
         Args:
             calibrator_type: Type of calibrator to use
-            kappa: Power parameter only for POWER type, must be in (0, 1)
+            kappa: Power parameter only for POWER type, must be in (0, 1) and is considered to be a
+            tuning parameter that controls how aggressively the p-values are converted to e-values. 
         """
         self.calibrator_type = calibrator_type
         self.kappa = kappa
