@@ -197,6 +197,10 @@ class SequentialTesting:
         self.sum_centered_squares = 0.0
         self.empirical_variance = 0.0
 
+        # Track previous cumulative log e-value to compute sequential e-values
+        # Sequential e-value: E_t = E_{1:t} / E_{1:t-1} = exp(log_e_t - log_e_{t-1})
+        self.previous_log_e_cumulative = 0.0  # log(E_{1:0}) = log(1) = 0
+
         self.boundary_config = boundary_config or self._get_default_boundary_config()
 
         self.v_opt = self.boundary_config.v_opt or 1.0
@@ -204,10 +208,11 @@ class SequentialTesting:
         self.mixture = None
         
         self._setup_evaluator()
-        
+
         self.e_power_history = []
         self.lambda_history = []
         self.rejection_times = []
+        self.history = []
 
     def _get_default_boundary_config(self) -> BoundaryConfig:
         alpha = self.config.significance_level if hasattr(self, 'config') else 0.05
@@ -265,31 +270,31 @@ class SequentialTesting:
             self.mixture = TwoSidedNormalMixture(self.v_opt, self.alpha_opt)
         else:
             self.mixture = OneSidedNormalMixture(self.v_opt, self.alpha_opt)
-        
+
         def e_calculator(data):
             ### filtration step
             n = len(data)
             cumsum = np.sum(data)
-            
+
             self.data_sum += cumsum
             self.data_sum_squares += np.sum(data**2)
             self.data_count += n
-            
-            s = self.data_sum - self.null_value * self.data_count # centered partial sum process 
+
+            s = self.data_sum - self.null_value * self.data_count # centered sum process
             if self.alternative == AlternativeType.LESS:
                 s = -s
-            
+
             if self.known_variance is not None:
                 v = self.data_count * self.known_variance
             elif self.use_empirical_variance and self.data_count > max(1, self.min_samples_for_update):
                 sample_mean = self.data_sum / self.data_count
                 var_estimate = (self.data_sum_squares / self.data_count - sample_mean**2) * (self.data_count / (self.data_count - 1))
-                
+
                 if self.variance_bound:
                     var_estimate = min(var_estimate, self.variance_bound)
-                
+
                 v = max(self.data_count * var_estimate, 0.01)
-                
+
                 if self.data_count >= 2 * self.min_samples_for_update:
                     self.v_opt = v / self.data_count  # Update optimal intrinsic time
                     if self.alternative == AlternativeType.TWO_SIDED:
@@ -298,26 +303,31 @@ class SequentialTesting:
                         self.mixture = OneSidedNormalMixture(self.v_opt, self.alpha_opt)
             else:
                 v = self.data_count * 1.0
-            
-            log_e = self.mixture.log_superMG(s, v)
-            
-            if np.isnan(log_e) or np.isinf(log_e):
-                if log_e > 0:
-                    return 1e10
+
+            log_e_cumulative = self.mixture.log_superMG(s, v)
+
+            if np.isnan(log_e_cumulative) or np.isinf(log_e_cumulative):
+                if log_e_cumulative > 0:
+                    log_e_cumulative = np.log(1e10)
                 else:
-                    return 1e-10 
-            
-            return np.exp(log_e)
-        
+                    log_e_cumulative = np.log(1e-10)
+
+            # Compute sequential e-value: E_t = E_{1:t} / E_{1:t-1}
+            # In log space: log(E_t) = log(E_{1:t}) - log(E_{1:t-1})
+            log_e_sequential = log_e_cumulative - self.previous_log_e_cumulative
+            self.previous_log_e_cumulative = log_e_cumulative
+
+            return np.exp(log_e_sequential)
+
         self.e_calculator = e_calculator
     
     def _setup_proportion_test(self):
         if not 0 < self.null_value < 1:
             raise ValueError(f"Null proportion must be in (0,1), got {self.null_value}")
-        
+
         t_opt = max(100, 1 / (self.null_value * (1 - self.null_value)))  # Adaptive t_opt
         is_one_sided = self.alternative != AlternativeType.TWO_SIDED
-        
+
         self.mixture = BetaBinomialMixture(
             t_opt * self.null_value * (1 - self.null_value),
             self.alpha_opt,
@@ -325,17 +335,17 @@ class SequentialTesting:
             1 - self.null_value,
             is_one_sided
         )
-        
+
         def e_calculator(data):
             if not np.all(np.isin(data, [0, 1])):
                 raise ValueError("Proportion test requires binary (0/1) data")
-            
+
             successes = np.sum(data)
             trials = len(data)
-            
+
             self.data_sum += successes
             self.data_count += trials
-            
+
             if self.alternative == AlternativeType.LESS:
                 s = self.data_count * self.null_value - self.data_sum
                 v = self.data_count * self.null_value * (1 - self.null_value)
@@ -345,38 +355,48 @@ class SequentialTesting:
             else:  ## two-sided
                 s = abs(self.data_sum - self.data_count * self.null_value)
                 v = self.data_count * self.null_value * (1 - self.null_value)
-            
-            log_e = self.mixture.log_superMG(s, v)
-            return np.exp(log_e)
-        
+
+            log_e_cumulative = self.mixture.log_superMG(s, v)
+
+            log_e_sequential = log_e_cumulative - self.previous_log_e_cumulative
+            self.previous_log_e_cumulative = log_e_cumulative
+
+            return np.exp(log_e_sequential)
+
         self.e_calculator = e_calculator
     
     def _setup_variance_test(self):
         # TODO: validate this part, i am unsure if this is valid/optimal
         self.mixture = GammaExponentialMixture(100, self.alpha_opt, c=np.sqrt(2))
-        
+
         def e_calculator(data):
             n = len(data)
-            
+
             self.data_sum += np.sum(data)
             self.data_sum_squares += np.sum(data**2)
             self.data_count += n
-            
+
             if self.data_count <= 1:
                 return 1.0
-            
+
             sample_mean = self.data_sum / self.data_count
             sample_var = (self.data_sum_squares - self.data_count * sample_mean**2) / (self.data_count - 1)
-            
-            # H0: variane ≤ null_value vs H1: variance > null_value
+
+            # H0: variance ≤ null_value vs H1: variance > null_value
             chi_squared_stat = (self.data_count - 1) * sample_var / self.null_value
-            
+
             s = chi_squared_stat
             v = self.data_count - 1
-            
-            log_e = self.mixture.log_superMG(s, v)
-            return np.exp(log_e)
-        
+
+            # Compute cumulative log e-value
+            log_e_cumulative = self.mixture.log_superMG(s, v)
+
+            # Compute sequential e-value: E_t = E_{1:t} / E_{1:t-1}
+            log_e_sequential = log_e_cumulative - self.previous_log_e_cumulative
+            self.previous_log_e_cumulative = log_e_cumulative
+
+            return np.exp(log_e_sequential)
+
         self.e_calculator = e_calculator
     
     def _setup_quantile_test(self):
@@ -463,10 +483,28 @@ class SequentialTesting:
         if self.e_process.lambdas:
             optimal_lambda = self.e_process.lambdas[-1]
             self.lambda_history.append(optimal_lambda)
-        
+
+        self.history.append({
+            'step': len(self.history) + 1,
+            'observations': data.tolist(),
+            'e_value': e_value,  # raw e-value from this update (not cumulative)
+            'cumulative_e_value': current_value,  # cumulative e-process value
+            'reject_null': reject_null,
+            'p_value': p_value,
+            'sample_size': self.data_count,
+            'confidence_lower': confidence_bounds[0] if confidence_bounds else None,
+            'confidence_upper': confidence_bounds[1] if confidence_bounds else None,
+            'stopping_time': stopping_time,
+            'max_e_value': self.e_process_updater.get_max_value(self.e_process),
+            'timestamp': np.datetime64('now').astype(float),
+            'e_power': e_power,
+            'e_power_is_positive': e_power_is_positive,
+            'optimal_lambda': optimal_lambda
+        })
+
         return SequentialTestResult(
             reject_null=reject_null,
-            e_value=current_value,
+            e_value=e_value,  # sequential e-value from this update
             e_process=self.e_process,
             sample_size=self.data_count,
             p_value=p_value,
@@ -748,7 +786,12 @@ class SequentialTesting:
             summary["n_rejections"] = len(self.rejection_times)
         
         return summary
-    
+
+    def get_history_df(self) -> pd.DataFrame:
+        if not self.history:
+            return pd.DataFrame()
+        return pd.DataFrame(self.history)
+
     def reset(self):
         self.data_sum = 0.0
         self.data_sum_squares = 0.0
@@ -765,5 +808,6 @@ class SequentialTesting:
         self.e_power_history = []
         self.lambda_history = []
         self.rejection_times = []
+        self.history = []
         
         self._setup_evaluator()
