@@ -4,6 +4,7 @@ Hypothesis testing with e-values by Ramdas & Wang (2025)
 
 from typing import Optional, Union, List, Callable
 import numpy as np
+import warnings
 
 from expectation.modules.martingales import (
     SequentialEValueCombiner,
@@ -74,9 +75,18 @@ class EProcessUpdater:
         process.lambdas.append(lambda_t)
         
         increment = self.combiner.compute_increment(e_value, lambda_t)
-        
+
         current_value = process.process_values[-1] if process.process_values else 1.0
-        new_value = current_value * increment
+
+        # Handle potential overflow by capping at a large but safe value
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            new_value = current_value * increment
+
+            # Cap at a very large number to prevent infinity
+            if np.isinf(new_value) or new_value > 1e308:
+                new_value = 1e308  # Near float64 max but safe
+
         process.process_values.append(new_value)
         process.cumulative_value = new_value
         
