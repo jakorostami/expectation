@@ -53,10 +53,10 @@ pip install -e .
 Here's a quick example of how to use `expectation` for a sequential mean test:
 
 ```python
-from expectation import SequentialTest
+from expectation.seqtest import SequentialTesting
 
 # Initialize a test for H0: μ = 0 vs H1: μ > 0
-test = SequentialTest(
+test = SequentialTesting(
     test_type="mean",
     null_value=0,
     alternative="greater"
