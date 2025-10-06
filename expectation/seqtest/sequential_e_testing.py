@@ -400,45 +400,54 @@ class SequentialTesting:
         self.e_calculator = e_calculator
     
     def _setup_quantile_test(self):
-        # TODO: validate this part as well
         if self.quantile is None:
             raise ValueError("Quantile must be specified for quantile tests")
-        
+
         if not 0 < self.quantile < 1:
             raise ValueError(f"Quantile must be in (0,1), got {self.quantile}")
-        
+
+        t_opt = max(100, 1 / (self.quantile * (1 - self.quantile)))
+        is_one_sided = self.alternative != AlternativeType.TWO_SIDED
+
+        self.mixture = BetaBinomialMixture(
+            t_opt * self.quantile * (1 - self.quantile),
+            self.alpha_opt,
+            self.quantile,
+            1 - self.quantile,
+            is_one_sided
+        )
+
         self.order_stats = None
 
         def e_calculator(data):
             flat_data = np.asarray(data).flatten().tolist()
             self.all_data.extend(flat_data)
             n = len(self.all_data)
-            
+
             if n < 2:
                 return 1.0
-            
+
             self.order_stats = StaticOrderStatistics(self.all_data)
-            
+
+            count_below = self.order_stats.count_less(self.null_value)
+            prop_below = count_below / n
+
             if self.alternative == AlternativeType.GREATER:
-                exceedances = self.order_stats.count_less(self.null_value)
-                expected = n * (1 - self.quantile)
+                s = (prop_below - self.quantile) * n
             elif self.alternative == AlternativeType.LESS:
-                exceedances = n - self.order_stats.count_less_or_equal(self.null_value)
-                expected = n * self.quantile
-            else:  # Two-sided
-                # H0: quantile = null_value
-                lower = self.order_stats.count_less(self.null_value)
-                upper = n - self.order_stats.count_less_or_equal(self.null_value)
-                exceedances = max(abs(lower - n * self.quantile), abs(upper - n * (1 - self.quantile)))
-                expected = n * min(self.quantile, 1 - self.quantile)
-            
-            if expected > 0:
-                e_value = np.exp((exceedances - expected) / np.sqrt(expected))
-            else:
-                e_value = 1.0
-            
-            return max(e_value, 0.01)
-        
+                s = (self.quantile - prop_below) * n
+            else:  # TWO_SIDED
+                s = abs(prop_below - self.quantile) * n
+
+            v = self.quantile * (1 - self.quantile) * n
+
+            log_e_cumulative = self.mixture.log_superMG(s, v)
+
+            log_e_sequential = log_e_cumulative - self.previous_log_e_cumulative
+            self.previous_log_e_cumulative = log_e_cumulative
+
+            return np.exp(log_e_sequential)
+
         self.e_calculator = e_calculator
     
     def update(self, new_data: Union[float, List[float], NDArray]) -> SequentialTestResult:
