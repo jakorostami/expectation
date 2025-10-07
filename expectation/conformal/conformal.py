@@ -17,7 +17,7 @@ https://alrw.net/articles/26.pdf
 
 """
 
-from typing import Optional, List, Tuple, Callable, Union
+from typing import Optional, List, Tuple, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 import warnings
@@ -26,9 +26,7 @@ warnings.warn("The conformal module is experimental and may change in future rel
 
 from expectation.modules.martingales import (
     OneSidedNormalMixture, 
-    TwoSidedNormalMixture,
-    BetaBinomialMixture,
-    GammaExponentialMixture
+    TwoSidedNormalMixture
 )
 
 
