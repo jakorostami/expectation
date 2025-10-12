@@ -1,10 +1,15 @@
-# Expectation
+<p>
+    <a target="_blank">
+      <img width="100%" src="https://github.com/jakorostami/expectation/blob/develop/assets/images/expectation.png" alt="expectation banner"></a>
+  </p>
+
+# <div align="center"> expectation </div>
 
 A Python library for sequential testing and monitoring using e-values and e-processes. Based on modern developments in game-theoretic statistics, `expectation` provides valid inference at any stopping time, making it ideal for continuous monitoring and sequential analysis.
 
 ⚠️ **Pre-release Software Notice**: This library is currently in pre-release (v0.4.1). The repo may undergo significant changes before the 1.0.0 release. While the statistical implementations are sound, we recommend testing thoroughly before using in production environments.
 
-## Why use Expectation?
+## <div align="center"> Why use expectation? </div>
 
 🔄 **Truly Sequential**: Unlike traditional methods that require fixed sample sizes, `expectation` lets you analyze your data as it arrives, without penalty for multiple looks.
 
@@ -18,7 +23,7 @@ A Python library for sequential testing and monitoring using e-values and e-proc
 
 ![](https://github.com/jakorostami/expectation/blob/main/assets/images/seqplot.png)
 
-## Who is it for?
+## <div align="center"> Who is it for? </div>
 
 ### Data Scientists & Analysts
 - Monitor A/B tests in real-time without worrying about peeking problems
@@ -35,7 +40,7 @@ A Python library for sequential testing and monitoring using e-values and e-proc
 - Implement automated decision rules based on sequential data
 - Create robust testing pipelines
 
-## Installing expectation 🎲
+## <div align="center"> Installing expectation 🎲 </div>
 
 Getting started with `expectation` is easy! Here's how to set up the library for your statistical adventures.
 
@@ -48,7 +53,7 @@ cd expectation
 pip install -e .
 ```
 
-## Simple Demo
+## <div align="center"> Simple demo </div>
 
 Here's a quick example of how to use `expectation` for a sequential mean test:
 
@@ -85,7 +90,7 @@ Key features demonstrated:
 
 The test controls Type I error at level α (default 0.05) at ANY stopping time. No need to specify sample sizes in advance or adjust for multiple looks at the data!
 
-## Contributing 🤝
+## <div align="center"> Contributing 🤝 </div>
 
 We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes `expectation` better for everyone.
 
