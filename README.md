@@ -1,6 +1,6 @@
 <p>
     <a target="_blank">
-      <img width="100%" src="https://github.com/jakorostami/expectation/blob/fix/readme-changes/assets/images/expectation.png" alt="expectation banner"></a>
+      <img width="100%" src="https://github.com/jakorostami/expectation/blob/develop/assets/images/expectation.png" alt="expectation banner"></a>
   </p>
 
 # <div align="center"> expectation </div>
