@@ -1,7 +1,18 @@
-# Add this to .gitignore
+# Python artifacts
 dist/
 *.egg-info/
 build/
 *.pyc
 __pycache__/
 *.whl
+
+# Rust artifacts
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

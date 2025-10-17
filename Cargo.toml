@@ -1,0 +1,59 @@
+[package]
+name = "expectation"
+version = "0.4.1"
+edition = "2021"
+rust-version = "1.70"
+authors = ["Jako Rostami <rostami.jako@gmail.com>"]
+description = "Rust implementation of statistical functions for expectation library"
+license = "MIT"
+repository = "https://github.com/jakorostami/expectation"
+readme = "README.md"
+
+[lib]
+name = "expectation_rust"
+# "cdylib" is required for Python extension modules
+# "rlib" allows Rust code to use this crate as a library
+crate-type = ["cdylib", "rlib"]
+path = "rust/lib.rs"
+
+[dependencies]
+# PyO3 for Python bindings
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+
+# Numerical computation libraries (commonly needed for statistical work)
+# Uncomment as needed when implementing bindings
+# ndarray = "0.16"
+# numpy = "0.22"
+# statrs = "0.17"
+# num-traits = "0.2"
+# rayon = "1.10"  # For parallelization
+thiserror = "2.0.17"
+
+[dev-dependencies]
+# Testing utilities
+proptest = "1.5"
+criterion = "0.5"
+
+[profile.release]
+# Optimization settings for production builds
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.dev]
+# Faster compilation during development
+opt-level = 0
+debug = true
+
+[profile.bench]
+# Benchmarking profile
+inherits = "release"
+debug = true
+
+# Python packaging metadata
+[package.metadata.maturin]
+# Compatibility with abi3 means the wheel works with Python 3.10+
+python-source = "python"
+# This preserves the existing Python package structure
+module-name = "expectation._rust"
