@@ -1,4 +1,6 @@
 use thiserror::Error;
+use std::time::Instant;
+use std::hint::black_box;
 
 #[derive(Error, Debug)]
 pub enum MartingaleError {
@@ -69,9 +71,23 @@ impl MixtureSuperMartingale for TwoSidedNormalMixture {
     }
 }
 
+// fn main() {
+//       let mixture = TwoSidedNormalMixture::new(1.0, 0.05).unwrap();
+//       println!("rho: {}", mixture.rho());
+//       println!("log_super_mg(0.5, 1.0): {}", mixture.log_super_mg(0.5, 1.0));
+//       println!("bound(1.0, -3.0): {}", mixture.bound(1.0, -3.0));
+// }
+
 fn main() {
-      let mixture = TwoSidedNormalMixture::new(1.0, 0.05).unwrap();
-      println!("rho: {}", mixture.rho());
-      println!("log_super_mg(0.5, 1.0): {}", mixture.log_super_mg(0.5, 1.0));
-      println!("bound(1.0, -3.0): {}", mixture.bound(1.0, -3.0));
+    let mixture = TwoSidedNormalMixture::new(1.0, 0.05).unwrap();
+    let iterations = 10_000_000;
+
+    let start = Instant::now();
+    for _ in 0..iterations {
+        black_box(mixture.log_super_mg(black_box(0.5), black_box(1.0)));
+    }
+    let elapsed = start.elapsed();
+
+    println!("Rust: {:.2} ns/call", elapsed.as_nanos() / iterations);
+    println!("Total: {:.4} seconds for {} iterations", elapsed.as_secs_f64(), iterations);
 }
