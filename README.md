@@ -90,6 +90,29 @@ Key features demonstrated:
 
 The test controls Type I error at level α (default 0.05) at ANY stopping time. No need to specify sample sizes in advance or adjust for multiple looks at the data!
 
+## <div align="center"> Citation 📚 </div>
+
+If you use `expectation` in your research or projects, please cite it:
+
+### BibTeX
+```bibtex
+@software{rostami2024expectation,
+  author = {Rostami, Jako},
+  title = {expectation: Python library for sequential testing and e-processes},
+  year = {2024},
+  url = {https://github.com/jakorostami/expectation},
+  version = {0.4.1}
+}
+```
+
+### APA
+```
+Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.4.1) [Computer software]. https://github.com/jakorostami/expectation
+```
+
+You can also click the **"Cite this repository"** button at the top of this page for additional citation formats.
+
+
 ## <div align="center"> Contributing 🤝 </div>
 
 We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes `expectation` better for everyone.
