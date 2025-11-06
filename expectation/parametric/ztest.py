@@ -145,9 +145,10 @@ def CheckAndReturnsEsMinParameterSide(paramToCheck, alternative: str, es_min_nam
 
 
 class SaviZtestStat:
-    def __init__(self, parameter: float, n1: int, 
+
+    def __init__(self, z: float, parameter: float, n1: int, 
                  paired: bool = False,sigma: float = 1.0,  n2: Optional[int] = None, 
-                 etype: str = "ecauchy", 
+                 etype: str = "grow", 
                  alternative: Union[AlternativeType, str] = AlternativeType.TWO_SIDED,):
         '''
         Args:
@@ -164,11 +165,12 @@ class SaviZtestStat:
         self.paired = paired
         self.sigma = sigma
         self.etype = etype  
+        self.z = z
         self.alternative = alternative.lower()              
     # Compute effective sample size
-        self.nEff = self.compute_n_Eff()
+        self.nEff = self.compute_n_eff()
 
-    def compute_n_Eff(self):
+    def compute_n_eff(self):
         '''
         Compute effective sample size
         '''
@@ -177,24 +179,25 @@ class SaviZtestStat:
         else:
             return 1.0/(1/self.n1 + 1/self.n2)         
     
-    def compute_e_value(self, z: float):
+    def compute_e_value(self):
         '''
         Compute e-value from z-statistic based on specified eType
         '''
         if self.etype == "grow":
-            self.compute_grow(z)
+            return self.compute_grow()
         elif self.etype == "egauss":
-            return self.compute_egauss(z)
+            return self.compute_egauss()
         elif self.etype == "mom":
-            return self.compute_mom(z)
+            return self.compute_mom()
         elif self.etype == "imom":
-            return self.compute_imom(z)
+            return self.compute_imom()
         elif self.etype == "ecauchy":
-            return self.compute_ecauchy(z)
+            return self.compute_ecauchy()
         else:
             raise ValueError(f"Unknown etype: {self.etype}")
     
-    def compute_ecauchy(self, z: float) -> Tuple[float,float]:
+    def compute_ecauchy(self) -> Tuple[float,float]:
+        z = self.z  
         kappaG = self.parameter
         nEff = self.nEff
 
@@ -228,8 +231,9 @@ class SaviZtestStat:
         result, error = integrate.quad(integrand, 0, np.inf)
         return float(result), float(error)
     
-    def compute_mom(self, z: float) -> Tuple[float, Optional[float]]:
+    def compute_mom(self) -> Tuple[float, Optional[float]]:
         """Mixture of Means method formula."""
+        z = self.z
         g = self.parameter
         nEff = self.nEff
         
@@ -259,8 +263,9 @@ class SaviZtestStat:
             result, error = integrate.quad(integrand, lower, upper)
             return float(result), float(error)
 
-    def compute_imom(self, z: float) -> Tuple[float, float]:
+    def compute_imom(self) -> Tuple[float, float]:
         """Inverse Mixture of Means method formula."""
+        z = self.z
         tau = self.parameter
         nEff = self.nEff
         
@@ -286,8 +291,9 @@ class SaviZtestStat:
         result, error = integrate.quad(integrand, lower, upper)
         return float(result), float(error)
 
-    def compute_egauss(self, z: float)-> float:
+    def compute_egauss(self)-> float:
         """e-Gaussian method formula"""
+        z = self.z
         g = self.parameter
         nEff = self.nEff
 
@@ -307,8 +313,18 @@ class SaviZtestStat:
         
         return float(result)
 
-    def compute_grow(self, z: float) -> float:
-        phiS = 1 
+    def compute_grow(self) -> float:
+        z = self.z
+        alt_enum_map = {
+            'two_sided': AlternativeType.TWO_SIDED,
+            'greater': AlternativeType.GREATER,
+            'less': AlternativeType.LESS
+        }
+        alternative_enum = alt_enum_map[self.alternative]
+
+        phiS = CheckAndReturnsEsMinParameterSide(
+        paramToCheck = self.parameter,
+        alternative = alternative_enum, es_min_name="phiS") 
         nEff = self.nEff
         sigma = self.sigma
         
@@ -326,3 +342,4 @@ class SaviZtestStat:
             result = 2**(-15)
         
         return float(result)
+
