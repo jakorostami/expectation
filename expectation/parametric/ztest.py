@@ -9,9 +9,64 @@ Paper references:
 import numpy as np
 from scipy import stats, integrate
 from typing import Union, Tuple, Optional
+from pydantic import BaseModel
+from enum import Enum
 import warnings
-
 from expectation.seqtest.sequential_e_testing import AlternativeType
+
+class ParameterDomain(str,Enum):
+    UNKNOWN = "unknown"
+    REAL_NUMBERS = "realNumbers"
+    POSITIVE_NUMBERS = "positiveNumbers"
+
+class ParameterConfig(BaseModel):
+    "Configuration for each parameter type"
+    hyp_param_name: str
+    param_domain: ParameterDomain
+    error_mesaage: Optional[str] = None
+
+    class config:
+        frozen = True
+
+# Dictionary Mapping
+PARAMETER_CONFIGS: dict[str, ParameterConfig] = {
+    "noName": ParameterConfig(
+        hyp_param_name = "test relevant parameter", 
+        param_domain = ParameterDomain.UNKNOWN),
+    "meanDiffMin": ParameterConfig(
+        hyp_param_name = "meanDiff", 
+        param_domain = ParameterDomain.REAL_NUMBERS),
+    "phiS" : ParameterConfig(
+        hyp_param_name = "meanDiff", 
+        param_domain = ParameterDomain.REAL_NUMBERS),
+    "deltaMin": ParameterConfig(
+        hyp_param_name = "delta", 
+        param_domain = ParameterDomain.REAL_NUMBERS),
+    "deltaS" : ParameterConfig(
+        hyp_param_name = "delta", 
+        param_domain = ParameterDomain.REAL_NUMBERS),
+    "deltaTrue" : ParameterConfig(
+        hyp_param_name = "delta", 
+        param_domain = ParameterDomain.REAL_NUMBERS),
+    "hrMin" : ParameterConfig(
+        hyp_param_name = "theta",
+        param_domain = ParameterDomain.POSITIVE_NUMBERS,
+        error_message="thetaS and hrMin must be positive"), 
+    "thetaS" : ParameterConfig(
+        hyp_param_name = "theta", 
+        param_domain = ParameterDomain.POSITIVE_NUMBERS,
+        error_message="thetaS and hrMin must be positive"),  
+    "g" : ParameterConfig(
+        hyp_param_name = "g", 
+        param_domain = ParameterDomain.POSITIVE_NUMBERS,
+        error_message="The parameter g must be positive"),
+    "kappaG" : ParameterConfig(
+        hyp_param_name = "kappaG", 
+        param_domain = ParameterDomain.POSITIVE_NUMBERS,
+        error_message="The parameter kappaG must be positive")
+} 
+
+
 
 def CheckAndReturnsEsMinParameterSide(paramToCheck, alternative: str, es_min_name: str, 
                                       param_domain: Optional[str] = None):
@@ -34,60 +89,32 @@ def CheckAndReturnsEsMinParameterSide(paramToCheck, alternative: str, es_min_nam
     if not isinstance(alternative, AlternativeType):
         raise ValueError(f"alternative must be an AlternativeType enum, got {type(alternative)}")
     
-    valid_es_name = ["noName", "meanDiffMin", "phiS","deltaMin", "deltaS",
-                     "hrMin", "thetaS", "deltaTrue", "g", "kappaG"]
-    if es_min_name not in valid_es_name:
-        raise ValueError(f"Invalid es_min_name. Must be one of the {valid_es_name}")
-
+    # Validate es_min_name using dictionary keys
+    if es_min_name not in PARAMETER_CONFIGS:
+        valid_names = list(PARAMETER_CONFIGS.keys())
+        raise ValueError(f"Invalid es_min_name. Must be one of {valid_names}")
+    
     if alternative == AlternativeType.TWO_SIDED:
         if es_min_name in ["meanDiffMin", "deltaMin", "deltaTrue"]:
             return abs(paramToCheck)
         return paramToCheck
     
+    # Get configuration from dictionary
+    config = PARAMETER_CONFIGS[es_min_name]
+    
+    # Extract values from config
+    hyp_param_name = config.hyp_param_name
+    param_domain = config.param_domain
+    error = config.error_mesaage
+
     if es_min_name == "noName":
         param_name = None
     else:
         param_name = es_min_name
 
-    error = None
-
-    if param_name is None:
-        param_name = "the savi test defining parameter"
-        hyp_param_name = "test relevant parameter"
-        param_domain = "unknown"
-
-    elif param_name in ["phiS", "meanDiffMin"]: 
-        hyp_param_name = "meanDiff"
-        param_domain = "realNumbers" 
-
-    elif param_name in ["deltaS", "deltaMin", "deltaTrue"]:  
-        hyp_param_name = "delta"
-        param_domain = "realNumbers"  
-    
-    elif param_name in ["thetaS", "hrMin"]:  
-        hyp_param_name = "theta"
-        param_domain = "positiveNumbers"  
-        if paramToCheck < 0:
-            error = "thetaS and hrMin must be positive"
-    
-    elif param_name == "g":
-        hyp_param_name = "g"
-        param_domain = "positiveNumbers"
-        if paramToCheck < 0:
-            error = "The parameter g must be positive"
-
-    elif param_name == "kappaG":
-        hyp_param_name = "kappaG"
-        param_domain = "positiveNumbers"  
-        if paramToCheck < 0:
-            error = "The parameter kappaG must be positive"
-    
-    else:
-        hyp_param_name = "testRelevantParameter"
-    
     if error is not None:
         raise ValueError(error)
-    
+
     if param_domain == "unknown":
         
         if alternative == AlternativeType.GREATER and paramToCheck < 0:
