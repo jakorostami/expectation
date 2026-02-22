@@ -3,120 +3,106 @@
       <img width="100%" src="https://github.com/jakorostami/expectation/blob/develop/assets/images/expectation.png" alt="expectation banner"></a>
   </p>
 
-# <div align="center"> expectation </div>
+# expectation
 
-A Python library for sequential testing and monitoring using e-values and e-processes. Based on modern developments in game-theoretic statistics, `expectation` provides valid inference at any stopping time, making it ideal for continuous monitoring and sequential analysis.
+Sequential hypothesis testing with e-values and e-processes. Optional Rust acceleration for massively parallel testing (300K+ simultaneous tests at ~24 ns/test).
 
-⚠️ **Pre-release Software Notice**: This library is currently in pre-release (v0.4.1). The repo may undergo significant changes before the 1.0.0 release. While the statistical implementations are sound, we recommend testing thoroughly before using in production environments.
+> Pre-release (v0.5.0). API may change before 1.0.
 
-## <div align="center"> Why use expectation? </div>
+## What this does
 
-🔄 **Truly Sequential**: Unlike traditional methods that require fixed sample sizes, `expectation` lets you analyze your data as it arrives, without penalty for multiple looks.
+E-values replace p-values with a framework where you can monitor data continuously, stop whenever you want, and still have valid inference. No sample size calculations, no correction for peeking.
 
-📊 **Always Valid**: Through the use of e-values and e-processes, your inference remains valid regardless of when you stop. Look at your data whenever you want!
+The library covers:
 
-💪 **Statistically Rigorous**: Built on solid theoretical foundations from game-theoretic probability and martingale theory, providing strong guarantees for error control.
-
-🎯 **Interpretable**: E-values have a natural interpretation as betting outcomes or likelihood ratios, making them more intuitive than p-values for measuring evidence.
-
-🛠️ **Flexible**: Supports various types of tests (means, proportions, quantiles, variances) and can be extended to custom scenarios.
+- **Sequential testing** — mean, proportion, quantile, variance tests with anytime-valid guarantees
+- **Parallel engine** — Rust + rayon backend for 300K+ simultaneous tests (brain voxels, genomics, A/B tests at scale)
+- **Multiple testing** — e-Bonferroni (FWER), e-BH (FDR), e-Holm (FWER) for cross-test error control
+- **Confidence sequences** — time-uniform confidence intervals that are valid at every sample size
+- **Calibration** — convert between p-values and e-values
 
 ![](https://github.com/jakorostami/expectation/blob/main/assets/images/seqplot.png)
 
-## <div align="center"> Who is it for? </div>
+## Install
 
-### Data Scientists & Analysts
-- Monitor A/B tests in real-time without worrying about peeking problems
-- Analyze streaming data with valid statistical inference
-- Get early signals about treatment effects while maintaining error control
-
-### Researchers
-- Conduct sequential analyses with proper error control
-- Implement flexible stopping rules in experiments
-- Use modern statistical methods based on game-theoretic foundations
-
-### Engineers
-- Build monitoring systems with statistical guarantees
-- Implement automated decision rules based on sequential data
-- Create robust testing pipelines
-
-## <div align="center"> Installing expectation 🎲 </div>
-
-Getting started with `expectation` is easy! Here's how to set up the library for your statistical adventures.
-
-### From Source 📦
-
-If you want the latest development version:
 ```bash
 git clone https://github.com/jakorostami/expectation.git
 cd expectation
 pip install -e .
 ```
 
-## <div align="center"> Simple demo </div>
+For the Rust parallel engine:
+```bash
+pip install maturin
+maturin develop --release
+```
 
-Here's a quick example of how to use `expectation` for a sequential mean test:
+## Usage
+
+### Single sequential test
 
 ```python
 from expectation.seqtest import SequentialTesting
 
-# Initialize a test for H0: μ = 0 vs H1: μ > 0
-test = SequentialTesting(
-    test_type="mean",
-    null_value=0,
-    alternative="greater"
-)
+test = SequentialTesting(test_type="mean", null_value=0, alternative="greater")
 
-# First batch of data
-result1 = test.update([0.5, 1.2, 0.8])
-print(f"After 3 observations:")
-print(f"E-value: {result1.e_value:.2f}")
-print(f"Reject null: {result1.reject_null}")
+result = test.update([0.5, 1.2, 0.8])
+print(f"e-value: {result.e_value:.2f}, reject: {result.reject_null}")
 
-# More data arrives
-result2 = test.update([1.5, 1.1])
-print(f"\nAfter 5 observations:")
-print(f"E-value: {result2.e_value:.2f}")
-print(f"Cumulative e-value: {result2.e_process.cumulative_value:.2f}")
-print(f"Reject null: {result2.reject_null}")
+result = test.update([1.5, 1.1])
+print(f"cumulative e-process: {result.e_process.cumulative_value:.2f}")
 ```
 
-Key features demonstrated:
-1. Simple, intuitive interface
-2. Sequential updates as new data arrives
-3. Cumulative evidence tracking via e-process
-4. Automatic handling of optional stopping
-5. Clear rejection decisions
+### Massively parallel testing (Rust)
 
-The test controls Type I error at level α (default 0.05) at ANY stopping time. No need to specify sample sizes in advance or adjust for multiple looks at the data!
+```python
+import numpy as np
+from expectation.par_seqtest import ParallelSequentialTest, ParallelTestConfig
 
-## <div align="center"> Citation 📚 </div>
+config = ParallelTestConfig(
+    n_tests=300_000,
+    alpha=0.05,
+    alternative="greater",
+    combiner="empirically_adaptive",
+)
+engine = ParallelSequentialTest(config=config, null_values=0.0, variance=1.0)
 
-If you use `expectation` in your research or projects, please cite it:
+for t in range(100):
+    obs = np.random.randn(300_000)
+    obs[:1000] += 0.5  # signal in first 1000
+    result = engine.step(obs)
+
+# Cross-test error control
+bh = engine.e_bh()          # FDR control
+bonf = engine.e_bonferroni() # FWER control
+
+# Per-test state
+log_ep = engine.log_e_processes()   # log e-process values
+pvals = engine.p_values()           # calibrated p-values
+stops = engine.stopping_times()     # when each test rejected
+```
+
+## References
+
+- Ramdas, Wang (2025). *Hypothesis testing with e-values*
+- Howard, Ramdas, McAuliffe, Sekhon (2022). *Time-uniform, nonparametric, nonasymptotic confidence sequences*
+- Waudby-Smith, Ramdas (2024). *Estimating means of bounded random variables by betting*
+- Vovk, Wang (2021). *E-values: calibration, combination, and applications*
+
+## Citation
 
 ### BibTeX
 ```bibtex
 @software{rostami2024expectation,
   author = {Rostami, Jako},
-  title = {expectation: Python library for sequential testing and e-processes},
+  title = {expectation: Sequential testing with e-values and e-processes},
   year = {2024},
   url = {https://github.com/jakorostami/expectation},
-  version = {0.4.1}
+  version = {0.5.0}
 }
 ```
 
 ### APA
 ```
-Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.4.1) [Computer software]. https://github.com/jakorostami/expectation
+Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.5.0) [Computer software]. https://github.com/jakorostami/expectation
 ```
-
-You can also click the **"Cite this repository"** button at the top of this page for additional citation formats.
-
-
-## <div align="center"> Contributing 🤝 </div>
-
-We love contributions! Whether you're fixing bugs, adding features, or improving documentation, your help makes `expectation` better for everyone.
-
-Check out our [Contributing Guide](CONTRIBUTING.md) to get started, and join our friendly community. No contribution is too small, and all contributors are valued!
-
-Want to help but not sure how? See our [Issues](https://github.com/jakorostami/expectation/issues) or start a [Discussion](https://github.com/jakorostami/expectation/discussions). We're happy to guide you! 🎲✨

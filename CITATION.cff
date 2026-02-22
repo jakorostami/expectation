@@ -4,7 +4,7 @@ authors:
   - family-names: "Rostami"
     given-names: "Jako"
 title: "expectation: Python library for sequential testing and e-processes"
-version: 0.4.1
+version: 0.5.0
 date-released: 2024-11-09
 url: "https://github.com/jakorostami/expectation"
 repository-code: "https://github.com/jakorostami/expectation"
