@@ -1,6 +1,6 @@
 use crate::martingale::TwoSidedNormalMixture;
 use crate::par_seqtest::state::ParTestState;
-use crate::par_seqtest::update::{step_parallel, CombinerType, VarianceConfig};
+use crate::par_seqtest::update::{step_parallel, AlternativeDirection, CombinerType, VarianceConfig};
 
 #[test]
 fn test_step_parallel_basic() {
@@ -19,6 +19,8 @@ fn test_step_parallel_basic() {
         log_threshold,
         &variance,
         CombinerType::AllIn,
+        AlternativeDirection::TwoSided,
+        1,
         &m,
     )
     .unwrap();
@@ -44,6 +46,8 @@ fn test_dimension_mismatch() {
         3.0,
         &VarianceConfig::KnownHomogeneous(1.0),
         CombinerType::AllIn,
+        AlternativeDirection::TwoSided,
+        1,
         &m,
     );
     assert!(result.is_err());
@@ -58,7 +62,7 @@ fn test_ville_rejection_under_signal() {
     let log_threshold = (1.0_f64 / 0.05).ln();
     let variance = VarianceConfig::KnownHomogeneous(1.0);
 
-    for _ in 0..20 {
+    for t in 1..=20 {
         let obs = vec![3.0; n];
         step_parallel(
             &mut state,
@@ -67,6 +71,8 @@ fn test_ville_rejection_under_signal() {
             log_threshold,
             &variance,
             CombinerType::AllIn,
+            AlternativeDirection::TwoSided,
+            t,
             &m,
         )
         .unwrap();
@@ -75,6 +81,11 @@ fn test_ville_rejection_under_signal() {
     assert!(
         state.rejected.iter().all(|&r| r),
         "All tests should reject under strong signal"
+    );
+    // Verify stopping times are set
+    assert!(
+        state.stopping_time.iter().all(|&st| st > 0),
+        "All tests should have a stopping time"
     );
 }
 
@@ -104,6 +115,8 @@ fn test_single_test_matches_manual() {
             log_threshold,
             &variance,
             CombinerType::AllIn,
+            AlternativeDirection::TwoSided,
+            (t + 1) as u64,
             &m,
         )
         .unwrap();
@@ -135,6 +148,8 @@ fn test_heterogeneous_variance() {
         log_threshold,
         &variance,
         CombinerType::AllIn,
+        AlternativeDirection::TwoSided,
+        1,
         &m,
     )
     .unwrap();

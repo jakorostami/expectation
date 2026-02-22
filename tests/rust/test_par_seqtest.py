@@ -20,11 +20,15 @@ import numpy as np
 import pytest
 
 from expectation.par_seqtest import (
+    AlternativeDirection,
+    CombinerStrategy,
+    MartingaleType,
     MultipleTestingMethod,
     MultipleTestingResult,
     ParallelSequentialTest,
     ParallelTestConfig,
     StepResult,
+    VarianceMode,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -414,3 +418,664 @@ class TestEdgeCases:
         log_e = pst.log_e_processes()
 
         assert len(set(log_e)) == n, "Each variance should produce a unique e-value"
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: New golden + feature tests
+# ---------------------------------------------------------------------------
+
+
+def _make_pst_full(
+    n_tests: int,
+    null_values=0.0,
+    alpha: float = 0.05,
+    v_opt: float = 1.0,
+    alpha_opt: float = 0.05,
+    variance=1.0,
+    alternative: str = "two_sided",
+    combiner: str = "all_in",
+    conservative_lambda: float = 0.5,
+    gamma: float = 0.5,
+    epsilon: float = 1e-6,
+    martingale_type: str = "two_sided_normal",
+) -> ParallelSequentialTest:
+    """Helper with full config support for Phase 6 tests."""
+    config = ParallelTestConfig(
+        n_tests=n_tests,
+        alpha=alpha,
+        martingale_type=martingale_type,
+        v_opt=v_opt,
+        alpha_opt=alpha_opt,
+        alternative=alternative,
+        combiner=combiner,
+        conservative_lambda=conservative_lambda,
+        gamma=gamma,
+        epsilon=epsilon,
+    )
+    return ParallelSequentialTest(config=config, null_values=null_values, variance=variance)
+
+
+# ── Golden fixture loaders ────────────────────────────────────────────────
+
+
+@pytest.fixture
+def golden_one_sided():
+    path = FIXTURES_DIR / "golden_one_sided_normal.json"
+    with open(path) as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def golden_conservative():
+    path = FIXTURES_DIR / "golden_conservative_combiner.json"
+    with open(path) as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def golden_adaptive():
+    path = FIXTURES_DIR / "golden_adaptive_combiner.json"
+    with open(path) as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def golden_less():
+    path = FIXTURES_DIR / "golden_less_alternative.json"
+    with open(path) as f:
+        return json.load(f)
+
+
+# ── Test classes ──────────────────────────────────────────────────────────
+
+
+class TestOneSidedGolden:
+    """Golden tests: one-sided GREATER normal vs Python OneSidedNormalMixture.
+
+    Reference: Howard et al. (2022), Section 3.
+    """
+
+    def test_log_e_process_matches_python(self, golden_one_sided):
+        """Each step's log_e_process must match Python within 1e-13."""
+        cfg = golden_one_sided["config"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="greater",
+            martingale_type="one_sided_normal",
+        )
+
+        for step in golden_one_sided["steps"]:
+            pst.step(np.array([step["x"]]))
+            rust_log_e = pst.log_e_processes()[0]
+            python_log_e = step["log_e_cum"]
+
+            assert abs(rust_log_e - python_log_e) < TOLERANCE, (
+                f"Step {step['t']}: Rust={rust_log_e}, Python={python_log_e}, "
+                f"diff={abs(rust_log_e - python_log_e)}"
+            )
+
+    def test_final_value_50_steps(self, golden_one_sided):
+        """Final log_e_process after 50 steps matches Python."""
+        cfg = golden_one_sided["config"]
+        steps = golden_one_sided["steps"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="greater",
+            martingale_type="one_sided_normal",
+        )
+
+        for step in steps:
+            pst.step(np.array([step["x"]]))
+
+        final_rust = pst.log_e_processes()[0]
+        final_python = steps[-1]["log_e_cum"]
+        assert abs(final_rust - final_python) < TOLERANCE
+
+
+class TestLessAlternativeGolden:
+    """Golden tests: one-sided LESS alternative with sign flip.
+
+    Reference: Ramdas & Wang (2025), Section 2.1.
+    """
+
+    def test_log_e_process_matches_python(self, golden_less):
+        """LESS alternative: s is negated, log_e_process matches Python."""
+        cfg = golden_less["config"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="less",
+            martingale_type="one_sided_normal",
+        )
+
+        for step in golden_less["steps"]:
+            pst.step(np.array([step["x"]]))
+            rust_log_e = pst.log_e_processes()[0]
+            python_log_e = step["log_e_cum"]
+
+            assert abs(rust_log_e - python_log_e) < TOLERANCE, (
+                f"Step {step['t']}: Rust={rust_log_e}, Python={python_log_e}, "
+                f"diff={abs(rust_log_e - python_log_e)}"
+            )
+
+
+class TestAlternativeDirection:
+    """Tests for alternative hypothesis direction handling.
+
+    Reference: Ramdas & Wang (2025), Section 2.1.
+    """
+
+    def test_greater_vs_less_asymmetric(self):
+        """GREATER and LESS on same data should produce different e-values."""
+        np.random.seed(101)
+        obs = np.random.randn(1) + 0.5  # positive shift
+
+        pst_greater = _make_pst_full(
+            n_tests=1, alternative="greater", martingale_type="one_sided_normal",
+        )
+        pst_less = _make_pst_full(
+            n_tests=1, alternative="less", martingale_type="one_sided_normal",
+        )
+
+        for _ in range(10):
+            obs = np.random.randn(1) + 0.5
+            pst_greater.step(obs)
+            pst_less.step(obs)
+
+        log_e_greater = pst_greater.log_e_processes()[0]
+        log_e_less = pst_less.log_e_processes()[0]
+
+        assert log_e_greater != log_e_less, (
+            "GREATER and LESS should give different e-values on asymmetric data"
+        )
+        # Positive shift favors GREATER
+        assert log_e_greater > log_e_less, (
+            "Positive signal should favor GREATER over LESS"
+        )
+
+    def test_two_sided_auto_selects_martingale(self):
+        """TWO_SIDED should use TwoSidedNormalMixture (default)."""
+        pst = _make_pst_full(n_tests=1, alternative="two_sided")
+        assert pst.config.martingale_type == MartingaleType.TWO_SIDED_NORMAL
+
+    def test_greater_auto_selects_one_sided(self):
+        """GREATER should auto-select OneSidedNormalMixture."""
+        config = ParallelTestConfig(
+            n_tests=1,
+            alternative="greater",
+            martingale_type="two_sided_normal",  # should auto-switch
+        )
+        # The auto-switch happens inside ParallelSequentialTest.__init__
+        pst = ParallelSequentialTest(config=config, null_values=0.0, variance=1.0)
+        # Verify it works (doesn't crash) - the martingale was switched internally
+        pst.step(np.array([1.0]))
+        assert pst.log_e_processes()[0] != 0.0
+
+
+class TestConservativeCombiner:
+    """Golden tests: conservative combiner (fixed lambda=0.5).
+
+    Reference: Ramdas & Wang (2025), Definition 7.21.
+    """
+
+    def test_log_e_process_matches_python(self, golden_conservative):
+        """Conservative combiner e-process must match Python within 1e-13."""
+        cfg = golden_conservative["config"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="two_sided",
+            combiner="conservative",
+            conservative_lambda=cfg["lambda_fixed"],
+        )
+
+        for step in golden_conservative["steps"]:
+            pst.step(np.array([step["x"]]))
+            rust_log_e = pst.log_e_processes()[0]
+            python_log_e = step["log_e_process"]
+
+            assert abs(rust_log_e - python_log_e) < TOLERANCE, (
+                f"Step {step['t']}: Rust={rust_log_e}, Python={python_log_e}, "
+                f"diff={abs(rust_log_e - python_log_e)}"
+            )
+
+    def test_conservative_dampens_all_in(self):
+        """Conservative combiner should dampen e-process growth vs ALL_IN."""
+        np.random.seed(55)
+        obs_seq = [np.random.randn(1) + 1.0 for _ in range(30)]
+
+        pst_all_in = _make_pst_full(n_tests=1, combiner="all_in")
+        pst_conservative = _make_pst_full(
+            n_tests=1, combiner="conservative", conservative_lambda=0.5,
+        )
+
+        for obs in obs_seq:
+            pst_all_in.step(obs)
+            pst_conservative.step(obs)
+
+        log_all_in = pst_all_in.log_e_processes()[0]
+        log_conservative = pst_conservative.log_e_processes()[0]
+
+        # Under signal, ALL_IN grows faster than conservative
+        assert log_all_in > log_conservative, (
+            f"ALL_IN ({log_all_in:.4f}) should grow faster than "
+            f"conservative ({log_conservative:.4f}) under signal"
+        )
+
+    def test_lambda_is_fixed(self, golden_conservative):
+        """Lambda should be constant at the configured value."""
+        cfg = golden_conservative["config"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            combiner="conservative",
+            conservative_lambda=cfg["lambda_fixed"],
+        )
+
+        for step in golden_conservative["steps"]:
+            pst.step(np.array([step["x"]]))
+
+        # Lambda should be the fixed value
+        lam = pst.lambdas()[0]
+        assert abs(lam - cfg["lambda_fixed"]) < 1e-15
+
+
+class TestAdaptiveCombiner:
+    """Tests for empirically adaptive combiner (ONS approximation).
+
+    Reference: Waudby-Smith & Ramdas (2024), Theorem 7.22 in Ramdas & Wang (2025).
+    """
+
+    def test_log_e_process_matches_python(self, golden_adaptive):
+        """Adaptive combiner e-process must match Python within 1e-13."""
+        cfg = golden_adaptive["config"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="two_sided",
+            combiner="empirically_adaptive",
+            gamma=cfg["gamma"],
+            epsilon=cfg["epsilon"],
+        )
+
+        for step in golden_adaptive["steps"]:
+            pst.step(np.array([step["x"]]))
+            rust_log_e = pst.log_e_processes()[0]
+            python_log_e = step["log_e_process"]
+
+            assert abs(rust_log_e - python_log_e) < TOLERANCE, (
+                f"Step {step['t']}: Rust={rust_log_e}, Python={python_log_e}, "
+                f"diff={abs(rust_log_e - python_log_e)}"
+            )
+
+    def test_lambda_starts_at_zero(self):
+        """First lambda should be 0 (no previous data for estimation)."""
+        pst = _make_pst_full(
+            n_tests=1, combiner="empirically_adaptive",
+        )
+        pst.step(np.array([1.0]))
+        # After step 1, the lambda used was 0.0 (S1=0, S2=0 before step 1)
+        # But the stored lambda reflects the CURRENT lambda for the next step
+        # Let's verify via the e-process: with lambda=0, increment=1.0, so log_e_process=0.0
+        log_ep = pst.log_e_processes()[0]
+        assert abs(log_ep) < 1e-15, (
+            f"First step with lambda=0 should give log_e_process=0, got {log_ep}"
+        )
+
+    def test_lambda_bounded_by_gamma(self):
+        """Lambda should never exceed gamma."""
+        gamma = 0.3
+        pst = _make_pst_full(
+            n_tests=1, combiner="empirically_adaptive", gamma=gamma,
+        )
+
+        np.random.seed(77)
+        for _ in range(50):
+            pst.step(np.random.randn(1) + 2.0)
+
+        lam = pst.lambdas()[0]
+        assert lam <= gamma + 1e-15, (
+            f"Lambda {lam} exceeds gamma {gamma}"
+        )
+
+    def test_adaptive_grows_under_signal(self):
+        """Adaptive combiner should detect signal (e-process grows)."""
+        pst = _make_pst_full(
+            n_tests=1, combiner="empirically_adaptive",
+        )
+
+        np.random.seed(88)
+        for _ in range(100):
+            pst.step(np.random.randn(1) + 1.0)
+
+        log_ep = pst.log_e_processes()[0]
+        assert log_ep > 0, (
+            f"Adaptive combiner should grow under signal, got log_e_process={log_ep}"
+        )
+
+
+class TestSequentialEValues:
+    """Verify sequential e-value decomposition property.
+
+    For ALL_IN combiner: product of sequential e-values = cumulative e-process.
+    E_{1:T} = prod_{t=1}^T E_t, i.e., sum of log_e_sequential = log_e_process.
+
+    Reference: Ramdas & Wang (2025), Proposition 7.20.
+    """
+
+    def test_product_decomposition(self):
+        """Sum of log sequential e-values = log e-process (ALL_IN)."""
+        pst = _make_pst_full(n_tests=1, combiner="all_in")
+
+        np.random.seed(33)
+        log_seq_sum = 0.0
+        for _ in range(30):
+            pst.step(np.random.randn(1) + 0.5)
+            log_seq_sum += pst.log_e_sequential()[0]
+
+        log_ep = pst.log_e_processes()[0]
+        # For ALL_IN: log_e_process == cumulative log supermartingale
+        # And sum of sequential == cumulative
+        assert abs(log_seq_sum - log_ep) < 1e-12, (
+            f"Product decomposition failed: sum_log_seq={log_seq_sum}, "
+            f"log_e_process={log_ep}, diff={abs(log_seq_sum - log_ep)}"
+        )
+
+    def test_sequential_e_value_matches_golden(self, golden_one_sided):
+        """Sequential log e-values from Rust match Python golden."""
+        cfg = golden_one_sided["config"]
+        steps = golden_one_sided["steps"]
+
+        pst = _make_pst_full(
+            n_tests=1,
+            null_values=cfg["null_value"],
+            v_opt=cfg["v_opt"],
+            alpha_opt=cfg["alpha_opt"],
+            variance=cfg["known_variance"],
+            alternative="greater",
+            martingale_type="one_sided_normal",
+        )
+
+        for step in steps:
+            pst.step(np.array([step["x"]]))
+            rust_log_seq = pst.log_e_sequential()[0]
+            python_log_seq = step["log_e_sequential"]
+
+            assert abs(rust_log_seq - python_log_seq) < TOLERANCE, (
+                f"Step {step['t']}: Rust log_e_seq={rust_log_seq}, "
+                f"Python={python_log_seq}"
+            )
+
+    def test_multi_test_independence(self):
+        """Sequential e-values for different tests should be independent."""
+        pst = _make_pst_full(n_tests=5, combiner="all_in")
+
+        np.random.seed(44)
+        for _ in range(10):
+            obs = np.random.randn(5)
+            obs[0] += 3.0  # Strong signal on test 0 only
+            pst.step(obs)
+
+        log_seq = pst.log_e_sequential()
+        # Test 0 (signal) should differ from others
+        assert abs(log_seq[0] - log_seq[1]) > 0.01
+
+
+class TestStoppingTimes:
+    """Verify first-rejection stopping time tracking.
+
+    Reference: Ramdas & Wang (2025), Theorem 2.5 (Ville's inequality).
+    """
+
+    def test_stopping_time_under_signal(self):
+        """Tests with strong signal should have stopping time > 0."""
+        pst = _make_pst_full(n_tests=10)
+
+        for t in range(1, 51):
+            pst.step(np.full(10, 3.0))
+
+        st = pst.stopping_times()
+        assert np.all(st > 0), (
+            f"All tests should have stopped under strong signal: {st}"
+        )
+
+    def test_stopping_time_zero_under_null(self):
+        """Tests under null should mostly not stop (stopping_time=0)."""
+        np.random.seed(22)
+        pst = _make_pst_full(n_tests=100)
+
+        for _ in range(20):
+            pst.step(np.random.randn(100))
+
+        st = pst.stopping_times()
+        n_stopped = np.sum(st > 0)
+        # Under null, very few should stop at alpha=0.05
+        assert n_stopped < 10, (
+            f"Too many tests stopped under null: {n_stopped}/100"
+        )
+
+    def test_stopping_time_matches_rejection_step(self):
+        """Stopping time should equal the first step where rejection occurs."""
+        pst = _make_pst_full(n_tests=1)
+
+        rejection_step = 0
+        for t in range(1, 51):
+            result = pst.step(np.array([3.0]))
+            if result.n_rejected > 0 and rejection_step == 0:
+                rejection_step = t
+
+        st = pst.stopping_times()[0]
+        assert st == rejection_step, (
+            f"Stopping time {st} != first rejection step {rejection_step}"
+        )
+
+
+class TestPValues:
+    """Verify p-value computation: p_t = min(1, exp(-log_e_process)).
+
+    Reference: Ramdas & Wang (2025), Proposition 2.2.
+    """
+
+    def test_p_values_in_unit_interval(self):
+        """P-values should always be in [0, 1]."""
+        np.random.seed(55)
+        pst = _make_pst_full(n_tests=100)
+
+        for _ in range(20):
+            pst.step(np.random.randn(100) + 0.5)
+
+        pv = pst.p_values()
+        assert np.all(pv >= 0), "P-values should be non-negative"
+        assert np.all(pv <= 1.0), "P-values should be at most 1"
+
+    def test_p_values_start_at_one(self):
+        """Before any evidence, p-values should be 1.0."""
+        pst = _make_pst_full(n_tests=5)
+        pv = pst.p_values()
+        assert np.allclose(pv, 1.0), f"Initial p-values should be 1.0, got {pv}"
+
+    def test_p_values_decrease_under_signal(self):
+        """P-values should decrease under strong signal."""
+        pst = _make_pst_full(n_tests=10)
+
+        for _ in range(30):
+            pst.step(np.full(10, 2.0))
+
+        pv = pst.p_values()
+        assert np.all(pv < 0.05), (
+            f"P-values should be < 0.05 under strong signal: {pv}"
+        )
+
+    def test_p_value_formula(self):
+        """p = min(1, exp(-log_e_process))."""
+        np.random.seed(66)
+        pst = _make_pst_full(n_tests=10)
+
+        for _ in range(10):
+            pst.step(np.random.randn(10) + 0.5)
+
+        log_ep = pst.log_e_processes()
+        pv = pst.p_values()
+
+        expected = np.minimum(1.0, np.exp(-log_ep))
+        np.testing.assert_allclose(pv, expected, atol=1e-14)
+
+    def test_p_values_uniform_under_null(self):
+        """Under H0, p-values at final step should be stochastically >= Uniform.
+
+        This is a weak check: median p-value under null should be > 0.3.
+        """
+        np.random.seed(77)
+        n_sims = 200
+        final_pvals = []
+
+        for _ in range(n_sims):
+            pst = _make_pst_full(n_tests=1)
+            for _ in range(20):
+                pst.step(np.random.randn(1))
+            final_pvals.append(pst.p_values()[0])
+
+        median_pv = np.median(final_pvals)
+        assert median_pv > 0.3, (
+            f"Median p-value under null should be > 0.3, got {median_pv:.3f}"
+        )
+
+
+class TestEHolmCorrection:
+    """Tests for e-Holm step-down procedure.
+
+    Reference: Ramdas & Wang (2025), Section 4.1, Proposition 4.3.
+    """
+
+    def test_e_holm_controls_fwer(self):
+        """Under all-null, e-Holm FWER <= alpha + tolerance."""
+        np.random.seed(200)
+        n_sims = 50
+        n_tests = 500
+        alpha = 0.05
+
+        any_rejection = 0
+        for _ in range(n_sims):
+            pst = _make_pst_full(n_tests=n_tests, alpha=alpha)
+            for _ in range(20):
+                pst.step(np.random.randn(n_tests))
+            result = pst.e_holm(alpha=alpha)
+            if result.n_rejected > 0:
+                any_rejection += 1
+
+        fwer = any_rejection / n_sims
+        assert fwer <= alpha + 0.03, (
+            f"e-Holm FWER {fwer:.3f} exceeds alpha + tolerance"
+        )
+
+    def test_e_holm_detects_signal(self):
+        """e-Holm should detect strong signals."""
+        n_tests = 100
+        n_signal = 5
+
+        pst = _make_pst_full(n_tests=n_tests, alpha=0.05)
+
+        np.random.seed(201)
+        for _ in range(30):
+            obs = np.random.randn(n_tests)
+            obs[:n_signal] += 3.0
+            pst.step(obs)
+
+        result = pst.e_holm(alpha=0.05)
+        assert result.method == MultipleTestingMethod.E_HOLM
+        assert result.n_rejected >= n_signal - 1, (
+            f"e-Holm should detect most signals, got {result.n_rejected}"
+        )
+
+
+class TestNewlyRejected:
+    """Tests for the n_newly_rejected field in StepResult."""
+
+    def test_newly_rejected_counts(self):
+        """n_newly_rejected should count tests rejected in this step only."""
+        pst = _make_pst_full(n_tests=10)
+
+        total_newly = 0
+        for _ in range(50):
+            result = pst.step(np.full(10, 3.0))
+            total_newly += result.n_newly_rejected
+
+        # Total newly rejected should equal total rejected
+        assert total_newly == 10, (
+            f"Sum of newly rejected ({total_newly}) should equal n_tests (10)"
+        )
+
+    def test_newly_rejected_zero_after_all_rejected(self):
+        """Once all tests are rejected, n_newly_rejected should be 0."""
+        pst = _make_pst_full(n_tests=5)
+
+        # Run until all rejected
+        for _ in range(50):
+            result = pst.step(np.full(5, 5.0))
+            if result.n_rejected == 5:
+                break
+
+        # Next step should have 0 newly rejected
+        result = pst.step(np.full(5, 5.0))
+        assert result.n_newly_rejected == 0
+
+
+class TestLambdasAccessor:
+    """Tests for the lambdas() accessor."""
+
+    def test_all_in_lambda_is_one(self):
+        """ALL_IN combiner should have lambda=1.0."""
+        pst = _make_pst_full(n_tests=5, combiner="all_in")
+        pst.step(np.ones(5))
+
+        lam = pst.lambdas()
+        np.testing.assert_allclose(lam, 1.0, atol=1e-15)
+
+    def test_conservative_lambda_matches_config(self):
+        """Conservative combiner lambda should match configured value."""
+        lam_val = 0.3
+        pst = _make_pst_full(
+            n_tests=5, combiner="conservative", conservative_lambda=lam_val,
+        )
+        pst.step(np.ones(5))
+
+        lam = pst.lambdas()
+        np.testing.assert_allclose(lam, lam_val, atol=1e-15)
+
+    def test_adaptive_lambda_shape(self):
+        """Adaptive combiner lambda should have shape (n_tests,)."""
+        pst = _make_pst_full(n_tests=10, combiner="empirically_adaptive")
+
+        for _ in range(5):
+            pst.step(np.random.randn(10))
+
+        lam = pst.lambdas()
+        assert lam.shape == (10,)
+        assert np.all(lam >= 0)
+        assert np.all(lam <= 0.5 + 1e-15)  # bounded by gamma=0.5

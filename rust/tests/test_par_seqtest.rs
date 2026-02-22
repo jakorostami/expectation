@@ -10,6 +10,7 @@ fn test_par_seqtest_creation() {
         0.05,
         VarianceConfig::KnownHomogeneous(1.0),
         CombinerType::AllIn,
+        crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
     )
     .unwrap();
@@ -28,6 +29,7 @@ fn test_par_seqtest_step() {
         0.05,
         VarianceConfig::KnownHomogeneous(1.0),
         CombinerType::AllIn,
+        crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
     )
     .unwrap();
@@ -46,6 +48,7 @@ fn test_par_seqtest_batch() {
         0.05,
         VarianceConfig::KnownHomogeneous(1.0),
         CombinerType::AllIn,
+        crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
     )
     .unwrap();
@@ -65,6 +68,7 @@ fn test_null_values_mismatch() {
         0.05,
         VarianceConfig::KnownHomogeneous(1.0),
         CombinerType::AllIn,
+        crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
     );
     assert!(result.is_err());
