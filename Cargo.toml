@@ -20,13 +20,10 @@ path = "rust/lib.rs"
 # PyO3 for Python bindings
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
 
-# Numerical computation libraries (commonly needed for statistical work)
-# Uncomment as needed when implementing bindings
-# ndarray = "0.16"
-# numpy = "0.22"
-# statrs = "0.17"
-# num-traits = "0.2"
-# rayon = "1.10"  # For parallelization
+# Numerical computation libraries
+ndarray = "0.16"
+numpy = "0.22"
+rayon = "1.10"
 thiserror = "2.0.17"
 
 [dev-dependencies]

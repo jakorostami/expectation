@@ -1,33 +1,38 @@
-//! Rust implementation for the expectation library
+//! Rust acceleration layer for the expectation library.
 //!
-//! This module provides high-performance implementations of statistical
-//! computations for confidence sequences, sequential testing, e-processes,
-//! e-values, and game-theoretic probability.
+//! Provides high-performance implementations of:
+//! - Mixture supermartingales (two-sided normal, one-sided normal)
+//! - VoxelField parallel engine for 300K+ simultaneous hypothesis tests
+//! - Multiple testing procedures (e-Bonferroni, e-BH, e-Holm)
 //!
 //! # Architecture
 //!
-//! The Rust code is organized into modules that mirror the Python package structure:
-//! - `conformal`: Conformal prediction implementations
-//! - `confseq`: Confidence sequences
-//! - `parametric`: Parametric statistical methods
-//! - `seqtest`: Sequential testing procedures
-//! - `utils`: Utility functions and common operations
+//! The hot path is fully monomorphized: `VoxelField<M>` is generic over
+//! `MixtureSuperMartingale`, so the compiler inlines `log_super_mg` into the
+//! rayon parallel loop with zero vtable overhead. Enum dispatch happens once
+//! at the PyO3 boundary (in `py.rs`), not per voxel.
 //!
-//! # Safety and Correctness
+//! # References
 //!
-//! All numerical computations are designed to handle edge cases appropriately:
-//! - NaN and infinity propagation follows IEEE 754 standards
-//! - Overflow/underflow conditions are checked where appropriate
-//! - Numerical stability is prioritized in algorithm selection
+//! - Howard, Ramdas, McAuliffe, Sekhon (2022). Time-uniform confidence sequences.
+//! - Ramdas, Wang (2025). Hypothesis testing with e-values, Ch. 4 & 7.
 
-// Module declarations - uncomment as you implement them
-// pub mod conformal;
-// pub mod confseq;
-// pub mod parametric;
-// pub mod seqtest;
-// pub mod utils;
+pub mod error;
+pub mod martingale;
+pub mod multiple_testing;
+pub mod py;
+pub mod voxelfield;
 
-// fn main() {
-//     // Entry point for the Rust library
-//     println!("Expectation Rust library loaded");
-// }
+#[cfg(test)]
+mod tests;
+
+use pyo3::prelude::*;
+
+/// Python module: `expectation._rust`
+///
+/// Exposes the Rust acceleration layer to Python.
+#[pymodule]
+fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    py::register(m)?;
+    Ok(())
+}
