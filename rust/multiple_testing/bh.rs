@@ -46,6 +46,11 @@ pub fn e_bh(log_e_values: &[f64], alpha: f64) -> BhResult {
 
     // Step-up: find k* = max{k : log_e_{(k)} >= ln(m) - ln(k) - ln(alpha)}
     // k is 1-indexed: the k-th largest e-value
+    //
+    // NOTE: We must scan ALL ranks, not break early. The threshold
+    // ln(m) - ln(k) - ln(alpha) DECREASES with k, so a rank that fails
+    // its threshold can be followed by a rank that passes its (lower)
+    // threshold. Early break would miss these rejections.
     let mut k_star = 0usize;
     for (rank_0, &(_orig_idx, log_e)) in indexed.iter().enumerate() {
         let k = rank_0 + 1; // 1-indexed rank
@@ -53,8 +58,6 @@ pub fn e_bh(log_e_values: &[f64], alpha: f64) -> BhResult {
         let log_threshold_k = log_m - (k as f64).ln() - log_alpha;
         if log_e >= log_threshold_k {
             k_star = k;
-        } else {
-            break; // Since sorted descending, once we fail, all subsequent fail too
         }
     }
 

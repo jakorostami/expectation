@@ -5,8 +5,10 @@
 //!   S.R Howard, A. Ramdas, J. McAuliffe, J. Sekhon (2022)
 //! - Hypothesis testing with e-values, A. Ramdas, R. Wang (2025), Ch. 7
 
+pub mod one_sided_normal;
 pub mod two_sided_normal;
 
+pub use one_sided_normal::OneSidedNormalMixture;
 pub use two_sided_normal::TwoSidedNormalMixture;
 
 /// Core trait for mixture supermartingales.

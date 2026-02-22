@@ -18,6 +18,7 @@
 //! - Ramdas, Wang (2025). Hypothesis testing with e-values, Ch. 4 & 7.
 
 pub mod error;
+pub mod math;
 pub mod martingale;
 pub mod multiple_testing;
 pub mod py;
