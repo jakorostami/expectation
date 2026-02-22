@@ -6,6 +6,12 @@ build/
 __pycache__/
 *.whl
 
+.claude/
+CLAUDE.md
+hypotevalues.pdf
+.DS_Store/
+*.so
+
 # Rust artifacts
 /target/
 Cargo.lock
