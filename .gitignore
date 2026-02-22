@@ -9,7 +9,7 @@ __pycache__/
 .claude/
 CLAUDE.md
 hypotevalues.pdf
-.DS_Store/
+.DS_Store
 *.so
 
 # Rust artifacts
