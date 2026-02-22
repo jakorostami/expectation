@@ -12,11 +12,15 @@ Based on these papers:
 
 Hypothesis testing with e-values, A. Ramdas, R. Wang (2025)
     - Ch. 4: Multiple testing with e-values (e-BH, e-Bonferroni, e-Holm)
-    - Ch. 7: E-processes and sequential e-values (Proposition 7.20: all-in strategy)
+    - Ch. 7: E-processes and sequential e-values (Definition 7.21, Proposition 7.20)
 
 Time-uniform, nonparametric, nonasymptotic confidence sequences,
 S.R. Howard, A. Ramdas, J. McAuliffe, J. Sekhon (2022)
     - Section 3: Normal mixture supermartingale
+
+Estimating means of bounded random variables by betting,
+I. Waudby-Smith, A. Ramdas (2024)
+    - ONS-based adaptive betting (Theorem 7.22 in Ramdas & Wang 2025)
 """
 
 from enum import Enum
@@ -38,8 +42,47 @@ class MartingaleType(str, Enum):
 
     TWO_SIDED_NORMAL: Two-sided normal mixture (Howard et al. 2022, Section 3).
         log M(s, v) = 0.5 * ln(rho / (v + rho)) + s^2 / (2 * (v + rho))
+
+    ONE_SIDED_NORMAL: One-sided normal mixture (Howard et al. 2022, Section 3).
+        log M(s, v) = 0.5 * ln(4rho / (v + rho)) + s^2 / (2 * (v + rho))
+                      + ln(Phi(s / sqrt(v + rho)))
     """
     TWO_SIDED_NORMAL = "two_sided_normal"
+    ONE_SIDED_NORMAL = "one_sided_normal"
+
+
+class AlternativeDirection(str, Enum):
+    """Alternative hypothesis direction.
+
+    Reference: Ramdas & Wang (2025), Section 2.1.
+
+    TWO_SIDED: Test H1: mu != mu_0 (uses TwoSidedNormalMixture).
+    GREATER: Test H1: mu > mu_0 (uses OneSidedNormalMixture).
+    LESS: Test H1: mu < mu_0 (uses OneSidedNormalMixture with negated s).
+    """
+    TWO_SIDED = "two_sided"
+    GREATER = "greater"
+    LESS = "less"
+
+
+class CombinerStrategy(str, Enum):
+    """How sequential e-values are combined into an e-process.
+
+    Reference: Ramdas & Wang (2025), Definition 7.21.
+
+    ALL_IN: lambda_t = 1 for all t (Proposition 7.20).
+        E-process = cumulative supermartingale. Most powerful but fragile.
+
+    CONSERVATIVE: Fixed lambda < 1.
+        E-process = product((1-lambda) + lambda * E_t). More robust.
+
+    EMPIRICALLY_ADAPTIVE: ONS-based adaptive betting (Theorem 7.22).
+        lambda_t = clamp(S1/(S2+epsilon), [0, gamma]).
+        Adapts to signal strength. Reference: Waudby-Smith & Ramdas (2024).
+    """
+    ALL_IN = "all_in"
+    CONSERVATIVE = "conservative"
+    EMPIRICALLY_ADAPTIVE = "empirically_adaptive"
 
 
 class VarianceMode(str, Enum):
@@ -97,6 +140,16 @@ class ParallelTestConfig(BaseModel):
         How variance is determined per test.
     min_samples : int
         Minimum observations before using empirical variance (Welford).
+    alternative : AlternativeDirection
+        Alternative hypothesis direction (Ramdas & Wang 2025, Section 2.1).
+    combiner : CombinerStrategy
+        How sequential e-values are combined (Ramdas & Wang 2025, Definition 7.21).
+    conservative_lambda : float
+        Fixed lambda for conservative combiner. Must be in (0, 1).
+    gamma : float
+        Cap for adaptive combiner lambda. Must be in (0, 1].
+    epsilon : float
+        Regularization for adaptive combiner. Must be > 0.
     """
     n_tests: int = Field(gt=0, description="Number of simultaneous hypothesis tests")
     alpha: float = Field(gt=0, lt=1, default=0.05, description="Significance level")
@@ -105,6 +158,11 @@ class ParallelTestConfig(BaseModel):
     alpha_opt: float = Field(gt=0, lt=1, default=0.05, description="Optimal alpha for rho")
     variance_mode: VarianceMode = Field(default=VarianceMode.KNOWN_HOMOGENEOUS)
     min_samples: int = Field(ge=1, default=30, description="Min samples for empirical variance")
+    alternative: AlternativeDirection = Field(default=AlternativeDirection.TWO_SIDED)
+    combiner: CombinerStrategy = Field(default=CombinerStrategy.ALL_IN)
+    conservative_lambda: float = Field(gt=0, lt=1, default=0.5, description="Lambda for conservative combiner")
+    gamma: float = Field(gt=0, le=1, default=0.5, description="Cap for adaptive combiner lambda")
+    epsilon: float = Field(gt=0, default=1e-6, description="Regularization for adaptive combiner")
 
     model_config = ConfigDict(frozen=True)
 
@@ -127,10 +185,13 @@ class StepResult(BaseModel):
         Tests rejected by Ville's inequality at this step (no correction).
     n_tests : int
         Total number of tests.
+    n_newly_rejected : int
+        Number of tests newly rejected in this step.
     """
     time_step: int = Field(ge=1)
     n_rejected: int = Field(ge=0)
     n_tests: int = Field(gt=0)
+    n_newly_rejected: int = Field(ge=0)
 
     model_config = ConfigDict(frozen=True)
 
@@ -193,24 +254,8 @@ class ParallelSequentialTest:
     - Ramdas & Wang (2025). Hypothesis testing with e-values, Ch. 4 & 7.
     - Howard, Ramdas, McAuliffe, Sekhon (2022). Time-uniform confidence
       sequences, Section 3.
-
-    Example
-    -------
-    >>> import numpy as np
-    >>> from expectation.par_seqtest import ParallelSequentialTest, ParallelTestConfig
-    >>>
-    >>> config = ParallelTestConfig(
-    ...     n_tests=300_000,
-    ...     alpha=0.05,
-    ...     martingale_type="two_sided_normal",
-    ...     v_opt=1.0,
-    ...     alpha_opt=0.05,
-    ... )
-    >>> pst = ParallelSequentialTest(config=config, null_values=0.0, variance=1.0)
-    >>> for t in range(100):
-    ...     obs = np.random.randn(300_000)
-    ...     result = pst.step(obs)
-    ...     bh = pst.e_bh()
+    - Waudby-Smith & Ramdas (2024). Estimating means of bounded random
+      variables by betting.
     """
 
     def __init__(
@@ -227,20 +272,30 @@ class ParallelSequentialTest:
         null_arr = np.asarray(null_values, dtype=np.float64)
 
         # Convert to Python lists for clean PyO3 extraction
-        # (avoids NumPy deprecation warning on ndim>0 to scalar conversion)
         var_arg = variance
         if var_arg is not None and not isinstance(var_arg, (int, float)):
             var_arg = np.asarray(var_arg, dtype=np.float64).tolist()
+
+        # Auto-select martingale: GREATER/LESS -> one_sided_normal
+        martingale_type = config.martingale_type.value
+        if config.alternative in (AlternativeDirection.GREATER, AlternativeDirection.LESS):
+            if config.martingale_type == MartingaleType.TWO_SIDED_NORMAL:
+                martingale_type = MartingaleType.ONE_SIDED_NORMAL.value
 
         self._inner = PyParallelSequentialTest(
             n_tests=config.n_tests,
             null_values=null_arr.tolist(),
             alpha=config.alpha,
-            martingale_type=config.martingale_type.value,
+            martingale_type=martingale_type,
             v_opt=config.v_opt,
             alpha_opt=config.alpha_opt,
             variance=var_arg,
             min_samples=config.min_samples,
+            alternative=config.alternative.value,
+            combiner=config.combiner.value,
+            conservative_lambda=config.conservative_lambda,
+            gamma=config.gamma,
+            epsilon=config.epsilon,
         )
 
     @property
@@ -251,9 +306,6 @@ class ParallelSequentialTest:
     def step(self, observations: NDArray[np.float64]) -> StepResult:
         """Process one observation per test for this time step.
 
-        Applies the mixture supermartingale update to each test in parallel
-        (Proposition 7.20 in Ramdas & Wang 2025: all-in e-process).
-
         Parameters
         ----------
         observations : NDArray[np.float64]
@@ -262,7 +314,8 @@ class ParallelSequentialTest:
         Returns
         -------
         StepResult
-            Frozen Pydantic model with time_step, n_rejected, n_tests.
+            Frozen Pydantic model with time_step, n_rejected, n_tests,
+            n_newly_rejected.
         """
         observations = np.asarray(observations, dtype=np.float64)
         raw = self._inner.step(observations)
@@ -270,6 +323,7 @@ class ParallelSequentialTest:
             time_step=raw["time_step"],
             n_rejected=raw["n_rejected"],
             n_tests=raw["n_tests"],
+            n_newly_rejected=raw["n_newly_rejected"],
         )
 
     def log_e_processes(self) -> NDArray[np.float64]:
@@ -288,23 +342,33 @@ class ParallelSequentialTest:
         """
         return np.asarray(self._inner.rejected())
 
+    def log_e_sequential(self) -> NDArray[np.float64]:
+        """Per-step sequential log e-values: log(E_t).
+
+        E_t = exp(log_e_cum_t - log_e_cum_{t-1}).
+        (Ramdas & Wang 2025, Ch. 7).
+        """
+        return np.asarray(self._inner.log_e_sequential())
+
+    def p_values(self) -> NDArray[np.float64]:
+        """Per-test p-values: min(1, exp(-log_e_process)).
+
+        (Ramdas & Wang 2025, Proposition 2.2).
+        """
+        return np.asarray(self._inner.p_values())
+
+    def stopping_times(self) -> NDArray[np.uint64]:
+        """Per-test stopping times (first rejection step, 0 = not stopped)."""
+        return np.asarray(self._inner.stopping_times())
+
+    def lambdas(self) -> NDArray[np.float64]:
+        """Per-test current betting fractions (lambda)."""
+        return np.asarray(self._inner.lambdas())
+
     def e_bonferroni(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-Bonferroni correction for FWER control.
 
-        Rejects test i if e_i >= m / alpha where m is the number of tests.
-        Controls familywise error rate at level alpha.
-
         Reference: Ramdas & Wang (2025), Section 4.1, Proposition 4.1.
-
-        Parameters
-        ----------
-        alpha : float, optional
-            Target FWER level. Defaults to construction alpha.
-
-        Returns
-        -------
-        MultipleTestingResult
-            Frozen model with rejected mask, n_rejected, method, alpha.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_bonferroni(alpha=alpha)
@@ -318,20 +382,7 @@ class ParallelSequentialTest:
     def e_bh(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-BH procedure for FDR control.
 
-        Sorts e-values descending and finds k* = max{k : e_{(k)} >= m/(k*alpha)}.
-        Rejects the top k* tests. Controls false discovery rate at level alpha.
-
         Reference: Ramdas & Wang (2025), Section 4.2, Theorem 4.2.
-
-        Parameters
-        ----------
-        alpha : float, optional
-            Target FDR level. Defaults to construction alpha.
-
-        Returns
-        -------
-        MultipleTestingResult
-            Frozen model with rejected mask, n_rejected, method, alpha.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_bh(alpha=alpha)
@@ -345,20 +396,7 @@ class ParallelSequentialTest:
     def e_holm(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-Holm step-down procedure for FWER control.
 
-        Sorts e-values descending and rejects while e_{(k)} >= (m-k+1)/alpha.
-        Tighter than e-Bonferroni via step-down rejection.
-
         Reference: Ramdas & Wang (2025), Section 4.1, Proposition 4.3.
-
-        Parameters
-        ----------
-        alpha : float, optional
-            Target FWER level. Defaults to construction alpha.
-
-        Returns
-        -------
-        MultipleTestingResult
-            Frozen model with rejected mask, n_rejected, method, alpha.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_holm(alpha=alpha)

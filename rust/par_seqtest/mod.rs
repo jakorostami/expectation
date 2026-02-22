@@ -14,19 +14,21 @@
 //!
 //! At ~2.9 ns/call for `log_super_mg` and rayon parallelism:
 //! - 300K tests per step: ~1.5 ms (8 cores)
-//! - Memory: ~13.5 MB (fits L3 cache)
+//! - Memory: ~28 MB with full state (fits L3 cache)
 //!
 //! # References
 //!
 //! - Ramdas & Wang (2025), Hypothesis testing with e-values, Ch. 4 & 7
+//! - Waudby-Smith & Ramdas (2024), Estimating means of bounded random
+//!   variables by betting
 
 pub mod state;
 pub mod update;
 
-use crate::error::{Result, EngineError};
+use crate::error::{EngineError, Result};
 use crate::martingale::MixtureSuperMartingale;
 use state::ParTestState;
-pub use update::{CombinerType, VarianceConfig};
+pub use update::{AlternativeDirection, CombinerType, VarianceConfig};
 
 /// Parallel engine for massively concurrent sequential hypothesis tests.
 ///
@@ -46,6 +48,8 @@ pub struct ParallelSequentialTest<M: MixtureSuperMartingale> {
     variance_config: VarianceConfig,
     /// How e-values are combined into e-processes
     combiner: CombinerType,
+    /// Alternative hypothesis direction
+    alternative: AlternativeDirection,
     /// The shared mixture supermartingale
     martingale: M,
     /// Number of time steps processed
@@ -61,6 +65,7 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
     /// * `alpha` - Significance level for per-test Ville rejection
     /// * `variance_config` - How variance is determined
     /// * `combiner` - How sequential e-values are combined
+    /// * `alternative` - Alternative hypothesis direction
     /// * `martingale` - The mixture supermartingale (shared across tests)
     ///
     /// # Errors
@@ -72,6 +77,7 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
         alpha: f64,
         variance_config: VarianceConfig,
         combiner: CombinerType,
+        alternative: AlternativeDirection,
         martingale: M,
     ) -> Result<Self> {
         if null_values.len() != n_tests {
@@ -93,6 +99,7 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
             alpha,
             variance_config,
             combiner,
+            alternative,
             martingale,
             time_step: 0,
         })
@@ -124,26 +131,31 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
 
     /// Process one observation per test.
     ///
+    /// Returns a `StepResult` with the number of newly rejected tests.
+    ///
     /// # Errors
     /// Returns `DimensionMismatch` if observations length != n_tests.
     pub fn step(&mut self, observations: &[f64]) -> Result<StepResult> {
-        update::step_parallel(
+        self.time_step += 1;
+
+        let n_newly_rejected = update::step_parallel(
             &mut self.state,
             observations,
             &self.null_values,
             self.log_threshold,
             &self.variance_config,
             self.combiner,
+            self.alternative,
+            self.time_step,
             &self.martingale,
         )?;
-
-        self.time_step += 1;
 
         let n_rejected = self.state.rejected.iter().filter(|&&r| r).count();
         Ok(StepResult {
             time_step: self.time_step,
             n_rejected,
             n_tests: self.n_tests(),
+            n_newly_rejected,
         })
     }
 
@@ -158,17 +170,39 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
         Ok(results)
     }
 
-    /// Access the current log e-process values (one per test).
+    // ── Accessors ──────────────────────────────────────────────────────
+
+    /// Current log e-process values (one per test).
     pub fn log_e_processes(&self) -> &[f64] {
         &self.state.log_e_process
     }
 
-    /// Access per-test rejection flags (Ville's inequality, no multiple testing correction).
+    /// Per-test rejection flags (Ville's inequality, no multiple testing correction).
     pub fn rejected(&self) -> &[bool] {
         &self.state.rejected
     }
 
-    /// Access the log threshold.
+    /// Per-step sequential log e-values: log(E_t) = log_e_cum_t - prev_log_e_cum.
+    pub fn log_e_sequential(&self) -> &[f64] {
+        &self.state.log_e_sequential
+    }
+
+    /// Per-test p-values: min(1, exp(-log_e_process)).
+    pub fn p_values(&self) -> &[f64] {
+        &self.state.p_value
+    }
+
+    /// Per-test stopping times (first rejection step, 0 = not stopped).
+    pub fn stopping_times(&self) -> &[u64] {
+        &self.state.stopping_time
+    }
+
+    /// Per-test current betting fractions (lambda).
+    pub fn lambdas(&self) -> &[f64] {
+        &self.state.lambda
+    }
+
+    /// The log threshold ln(1/alpha).
     pub fn log_threshold(&self) -> f64 {
         self.log_threshold
     }
@@ -180,4 +214,6 @@ pub struct StepResult {
     pub time_step: u64,
     pub n_rejected: usize,
     pub n_tests: usize,
+    /// Number of tests newly rejected in this step.
+    pub n_newly_rejected: u64,
 }
