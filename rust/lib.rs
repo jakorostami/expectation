@@ -2,15 +2,15 @@
 //!
 //! Provides high-performance implementations of:
 //! - Mixture supermartingales (two-sided normal, one-sided normal)
-//! - VoxelField parallel engine for 300K+ simultaneous hypothesis tests
+//! - ParallelSequentialTest engine for 300K+ simultaneous hypothesis tests
 //! - Multiple testing procedures (e-Bonferroni, e-BH, e-Holm)
 //!
 //! # Architecture
 //!
-//! The hot path is fully monomorphized: `VoxelField<M>` is generic over
-//! `MixtureSuperMartingale`, so the compiler inlines `log_super_mg` into the
-//! rayon parallel loop with zero vtable overhead. Enum dispatch happens once
-//! at the PyO3 boundary (in `py.rs`), not per voxel.
+//! The hot path is fully monomorphized: `ParallelSequentialTest<M>` is generic
+//! over `MixtureSuperMartingale`, so the compiler inlines `log_super_mg` into
+//! the rayon parallel loop with zero vtable overhead. Enum dispatch happens
+//! once at the PyO3 boundary (in `py.rs`), not per test.
 //!
 //! # References
 //!
@@ -21,7 +21,7 @@ pub mod error;
 pub mod martingale;
 pub mod multiple_testing;
 pub mod py;
-pub mod voxelfield;
+pub mod par_seqtest;
 
 #[cfg(test)]
 mod tests;
