@@ -1,11 +1,11 @@
 # pyproject.toml
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "expectation"
-version = "0.4.1"
+version = "0.5.0"
 authors = [
   { name="Jako Rostami", email="rostami.jako@gmail.com" },
 ]
@@ -25,3 +25,11 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/jakorostami/expectation"
 "Bug Tracker" = "https://github.com/jakorostami/expectation/issues"
+
+[tool.maturin]
+# Python source files are in the expectation/ directory
+python-source = "."
+# Preserves existing Python package structure while adding Rust extension
+module-name = "expectation._rust"
+# Build settings
+features = ["pyo3/extension-module"]

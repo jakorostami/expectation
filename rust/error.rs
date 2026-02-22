@@ -1,0 +1,27 @@
+//! Error types for the parallel sequential testing engine.
+//!
+//! Provides a unified error enum with automatic conversion to PyO3 exceptions.
+
+use pyo3::exceptions::PyValueError;
+use pyo3::PyErr;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum EngineError {
+    #[error("Invalid parameter: {0}")]
+    InvalidParameter(String),
+
+    #[error("Numerical computation failed: {0}")]
+    NumericalError(String),
+
+    #[error("Dimension mismatch: expected {expected}, got {got}")]
+    DimensionMismatch { expected: usize, got: usize },
+}
+
+pub type Result<T> = std::result::Result<T, EngineError>;
+
+impl From<EngineError> for PyErr {
+    fn from(err: EngineError) -> PyErr {
+        PyValueError::new_err(err.to_string())
+    }
+}
