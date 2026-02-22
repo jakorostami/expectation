@@ -10,7 +10,7 @@
 //!
 //! where rho is the optimal mixing parameter computed from (v_opt, alpha_opt).
 
-use crate::error::{Result, VoxelError};
+use crate::error::{Result, EngineError};
 use crate::martingale::MixtureSuperMartingale;
 
 /// Two-sided normal mixture supermartingale.
@@ -30,7 +30,7 @@ impl TwoSidedNormalMixture {
     /// Returns `InvalidParameter` if v_opt <= 0 or alpha_opt not in (0, 1).
     pub fn new(v_opt: f64, alpha_opt: f64) -> Result<Self> {
         if v_opt <= 0.0 {
-            return Err(VoxelError::InvalidParameter(
+            return Err(EngineError::InvalidParameter(
                 "v_opt must be positive".into(),
             ));
         }
@@ -44,7 +44,7 @@ impl TwoSidedNormalMixture {
     /// Returns `InvalidParameter` if rho <= 0.
     pub fn from_rho(rho: f64) -> Result<Self> {
         if rho <= 0.0 {
-            return Err(VoxelError::InvalidParameter(
+            return Err(EngineError::InvalidParameter(
                 "rho must be positive".into(),
             ));
         }
@@ -57,7 +57,7 @@ impl TwoSidedNormalMixture {
     ///   rho = v / (2 * ln(1/alpha) + ln(1 + 2 * ln(1/alpha)))
     pub fn best_rho(v: f64, alpha: f64) -> Result<f64> {
         if !(0.0 < alpha && alpha < 1.0) {
-            return Err(VoxelError::InvalidParameter(
+            return Err(EngineError::InvalidParameter(
                 "alpha must be in (0, 1)".into(),
             ));
         }
