@@ -27,13 +27,18 @@ jobs:
 
             - name: Install dependencies
               run: |
+                python -m venv .venv
+                source .venv/bin/activate
                 python -m pip install --upgrade pip
                 pip install -r requirements.txt
                 pip install maturin
 
             - name: Build Rust extension
-              run: maturin develop --release
+              run: |
+                source .venv/bin/activate
+                maturin develop --release
 
             - name: Run tests
               run: |
+                source .venv/bin/activate
                 pytest tests/
