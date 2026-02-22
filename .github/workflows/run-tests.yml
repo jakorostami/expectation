@@ -17,15 +17,22 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v6
 
-            - name: Setup pyton
+            - name: Setup Python
               uses: actions/setup-python@v6
               with:
                 python-version: '3.11'
+
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
 
             - name: Install dependencies
               run: |
                 python -m pip install --upgrade pip
                 pip install -r requirements.txt
+                pip install maturin
+
+            - name: Build Rust extension
+              run: maturin develop --release
 
             - name: Run tests
               run: |
