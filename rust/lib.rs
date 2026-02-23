@@ -20,6 +20,7 @@
 pub mod error;
 pub mod math;
 pub mod martingale;
+pub mod merge;
 pub mod multiple_testing;
 pub mod py;
 pub mod par_seqtest;

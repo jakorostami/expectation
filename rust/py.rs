@@ -10,6 +10,7 @@ use pyo3::types::PyDict;
 
 use crate::error::EngineError;
 use crate::martingale::{OneSidedNormalMixture, TwoSidedNormalMixture};
+use crate::merge::{MergeCombinerType, MergeConfig, MergeFunction};
 use crate::multiple_testing::{bh, bonferroni, holm};
 use crate::par_seqtest::update::{AlternativeDirection, CombinerType, VarianceConfig};
 use crate::par_seqtest::ParallelSequentialTest;
@@ -25,6 +26,11 @@ enum MartingaleKind {
 /// Processes 300K+ tests simultaneously using rayon parallelism and
 /// Structure-of-Arrays memory layout. Each test runs an independent
 /// sequential hypothesis test with anytime-valid guarantees.
+///
+/// When `global_merge` is specified, the engine additionally merges all K
+/// per-step e-values into a single merged e-value (Vovk & Wang 2024) and
+/// accumulates it temporally into an e-process for the intersection
+/// hypothesis (Ramdas & Wang 2025, Definition 7.21).
 #[pyclass(name = "PyParallelSequentialTest")]
 pub struct PyParallelSequentialTest {
     inner: MartingaleKind,
@@ -48,11 +54,24 @@ impl PyParallelSequentialTest {
     ///     conservative_lambda: Lambda for conservative combiner (default 0.5).
     ///     gamma: Cap for adaptive combiner lambda (default 0.5).
     ///     epsilon: Regularization for adaptive combiner (default 1e-6).
+    ///     global_merge: Merging function name or None (default None).
+    ///     merge_u_order: U-statistic order n (default 1).
+    ///     merge_lambda_param: Lambda for lambda_product merge (default 0.5).
+    ///     merge_segments: Segment boundaries for segment_product merge (default None).
+    ///     merge_combiner: Temporal combiner for merged stream (default "all_in").
+    ///     merge_conservative_lambda: Lambda for conservative merge combiner (default 0.5).
+    ///     merge_gamma: Cap for adaptive merge combiner (default 0.5).
+    ///     merge_epsilon: Regularization for adaptive merge combiner (default 1e-6).
+    ///     merge_include_rejected: Include rejected tests in merge (default true).
     #[new]
     #[pyo3(signature = (
         n_tests, null_values, alpha, martingale_type, v_opt, alpha_opt,
         variance=None, min_samples=30, alternative="two_sided",
-        combiner="all_in", conservative_lambda=0.5, gamma=0.5, epsilon=1e-6
+        combiner="all_in", conservative_lambda=0.5, gamma=0.5, epsilon=1e-6,
+        global_merge=None, merge_u_order=1, merge_lambda_param=0.5,
+        merge_segments=None, merge_combiner="all_in",
+        merge_conservative_lambda=0.5, merge_gamma=0.5, merge_epsilon=1e-6,
+        merge_include_rejected=true
     ))]
     fn new(
         py: Python<'_>,
@@ -69,6 +88,15 @@ impl PyParallelSequentialTest {
         conservative_lambda: f64,
         gamma: f64,
         epsilon: f64,
+        global_merge: Option<&str>,
+        merge_u_order: usize,
+        merge_lambda_param: f64,
+        merge_segments: Option<Vec<usize>>,
+        merge_combiner: &str,
+        merge_conservative_lambda: f64,
+        merge_gamma: f64,
+        merge_epsilon: f64,
+        merge_include_rejected: bool,
     ) -> PyResult<Self> {
         let null_vec = parse_float_input(py, null_values, n_tests, "null_values")?;
 
@@ -119,13 +147,69 @@ impl PyParallelSequentialTest {
             }
         };
 
+        // Parse merge configuration
+        let merge_config = match global_merge {
+            Some(merge_fn) => {
+                let function = match merge_fn {
+                    "arithmetic_mean" => MergeFunction::ArithmeticMean,
+                    "u_statistic" => MergeFunction::UStatistic { n: merge_u_order },
+                    "lambda_product" => MergeFunction::LambdaProduct {
+                        lambda: merge_lambda_param,
+                    },
+                    "segment_product" => {
+                        let segs = merge_segments.ok_or_else(|| {
+                            EngineError::InvalidParameter(
+                                "merge_segments required for segment_product merge".into(),
+                            )
+                        })?;
+                        MergeFunction::SegmentProduct { segments: segs }
+                    }
+                    "product" => MergeFunction::Product,
+                    other => {
+                        return Err(EngineError::InvalidParameter(format!(
+                            "Unknown global_merge: '{}'. Supported: 'arithmetic_mean', \
+                             'u_statistic', 'lambda_product', 'segment_product', 'product'",
+                            other
+                        ))
+                        .into())
+                    }
+                };
+
+                let merge_comb = match merge_combiner {
+                    "all_in" => MergeCombinerType::AllIn,
+                    "conservative" => MergeCombinerType::Conservative {
+                        lambda: merge_conservative_lambda,
+                    },
+                    "empirically_adaptive" => MergeCombinerType::EmpiricallyAdaptive {
+                        gamma: merge_gamma,
+                        epsilon: merge_epsilon,
+                    },
+                    other => {
+                        return Err(EngineError::InvalidParameter(format!(
+                            "Unknown merge_combiner: '{}'. Supported: 'all_in', \
+                             'conservative', 'empirically_adaptive'",
+                            other
+                        ))
+                        .into())
+                    }
+                };
+
+                Some(MergeConfig {
+                    function,
+                    combiner: merge_comb,
+                    include_rejected: merge_include_rejected,
+                })
+            }
+            None => None,
+        };
+
         // Auto-select martingale based on type and alternative
         match martingale_type {
             "two_sided_normal" => {
                 let m = TwoSidedNormalMixture::new(v_opt, alpha_opt)
                     .map_err(|e| Into::<PyErr>::into(e))?;
                 let pst = ParallelSequentialTest::new(
-                    n_tests, null_vec, alpha, variance_config, comb, alt, m,
+                    n_tests, null_vec, alpha, variance_config, comb, alt, m, merge_config,
                 )
                 .map_err(|e| Into::<PyErr>::into(e))?;
                 Ok(Self {
@@ -136,7 +220,7 @@ impl PyParallelSequentialTest {
                 let m = OneSidedNormalMixture::new(v_opt, alpha_opt)
                     .map_err(|e| Into::<PyErr>::into(e))?;
                 let pst = ParallelSequentialTest::new(
-                    n_tests, null_vec, alpha, variance_config, comb, alt, m,
+                    n_tests, null_vec, alpha, variance_config, comb, alt, m, merge_config,
                 )
                 .map_err(|e| Into::<PyErr>::into(e))?;
                 Ok(Self {
@@ -172,6 +256,30 @@ impl PyParallelSequentialTest {
         dict.set_item("n_rejected", result.n_rejected)?;
         dict.set_item("n_tests", result.n_tests)?;
         dict.set_item("n_newly_rejected", result.n_newly_rejected)?;
+
+        // Merged fields (only set when merge is configured)
+        if let Some(v) = result.merged_e_value {
+            dict.set_item("merged_e_value", v)?;
+        }
+        if let Some(v) = result.log_merged_e_value {
+            dict.set_item("log_merged_e_value", v)?;
+        }
+        if let Some(v) = result.merged_e_process {
+            dict.set_item("merged_e_process", v)?;
+        }
+        if let Some(v) = result.log_merged_e_process {
+            dict.set_item("log_merged_e_process", v)?;
+        }
+        if let Some(v) = result.merged_rejected {
+            dict.set_item("merged_rejected", v)?;
+        }
+        if let Some(v) = result.merged_p_value {
+            dict.set_item("merged_p_value", v)?;
+        }
+        if let Some(v) = result.merged_lambda {
+            dict.set_item("merged_lambda", v)?;
+        }
+
         Ok(dict)
     }
 
@@ -228,6 +336,58 @@ impl PyParallelSequentialTest {
         };
         Ok(PyArray1::from_slice_bound(py, values))
     }
+
+    // ── Merge accessors ───────────────────────────────────────────────
+
+    /// Get current merged e-value (None if merge not configured).
+    fn merged_e_value(&self) -> PyResult<Option<f64>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.merged_e_value(),
+            MartingaleKind::OneSidedNormal(pst) => pst.merged_e_value(),
+        })
+    }
+
+    /// Get current log merged e-process (None if merge not configured).
+    fn log_merged_e_process(&self) -> PyResult<Option<f64>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.log_merged_e_process(),
+            MartingaleKind::OneSidedNormal(pst) => pst.log_merged_e_process(),
+        })
+    }
+
+    /// Get whether intersection null has been rejected (None if merge not configured).
+    fn merged_rejected(&self) -> PyResult<Option<bool>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.merged_rejected(),
+            MartingaleKind::OneSidedNormal(pst) => pst.merged_rejected(),
+        })
+    }
+
+    /// Get merged p-value (None if merge not configured).
+    fn merged_p_value(&self) -> PyResult<Option<f64>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.merged_p_value(),
+            MartingaleKind::OneSidedNormal(pst) => pst.merged_p_value(),
+        })
+    }
+
+    /// Get merged stopping time (None if merge not configured).
+    fn merged_stopping_time(&self) -> PyResult<Option<u64>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.merged_stopping_time(),
+            MartingaleKind::OneSidedNormal(pst) => pst.merged_stopping_time(),
+        })
+    }
+
+    /// Get current merged temporal lambda (None if merge not configured).
+    fn merged_lambda(&self) -> PyResult<Option<f64>> {
+        Ok(match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.merged_lambda(),
+            MartingaleKind::OneSidedNormal(pst) => pst.merged_lambda(),
+        })
+    }
+
+    // ── Multiple testing corrections ──────────────────────────────────
 
     /// Apply e-Bonferroni correction for FWER control.
     #[pyo3(signature = (alpha=None))]

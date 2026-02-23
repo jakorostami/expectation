@@ -10,6 +10,16 @@
 //! zero vtable overhead. The PyO3 boundary uses enum dispatch (one match per
 //! call, not per test).
 //!
+//! # Global merge (optional)
+//!
+//! When `merge_config` is provided, after each parallel step the engine:
+//! 1. Reads `log_e_sequential` → converts to e-values via exp()
+//! 2. Applies a spatial merge function (V&W 2024, Corollary 1) → single merged e-value
+//! 3. Accumulates temporally into a running merged e-process (R&W 2025, Def. 7.21)
+//! 4. Checks Ville's inequality on the merged e-process
+//!
+//! This gives an anytime-valid test of the intersection hypothesis (all K nulls true).
+//!
 //! # Performance
 //!
 //! At ~2.9 ns/call for `log_super_mg` and rayon parallelism:
@@ -18,7 +28,8 @@
 //!
 //! # References
 //!
-//! - Ramdas & Wang (2025), Hypothesis testing with e-values, Ch. 4 & 7
+//! - Ramdas & Wang (2025), Hypothesis testing with e-values, Ch. 4, 7 & 8
+//! - Vovk & Wang (2024), Merging sequential e-values via martingales
 //! - Waudby-Smith & Ramdas (2024), Estimating means of bounded random
 //!   variables by betting
 
@@ -27,6 +38,7 @@ pub mod update;
 
 use crate::error::{EngineError, Result};
 use crate::martingale::MixtureSuperMartingale;
+use crate::merge::{self, MergeConfig, MergeState};
 use state::ParTestState;
 pub use update::{AlternativeDirection, CombinerType, VarianceConfig};
 
@@ -35,6 +47,10 @@ pub use update::{AlternativeDirection, CombinerType, VarianceConfig};
 /// Each test runs an independent sequential e-process with its own sufficient
 /// statistics. The `step()` method processes one observation per test
 /// in parallel using rayon.
+///
+/// When `merge_config` is `Some`, the engine additionally merges all K
+/// per-step e-values into a single merged e-value and accumulates it
+/// temporally into a merged e-process for the intersection hypothesis.
 pub struct ParallelSequentialTest<M: MixtureSuperMartingale> {
     /// SoA per-test state
     pub state: ParTestState,
@@ -54,6 +70,10 @@ pub struct ParallelSequentialTest<M: MixtureSuperMartingale> {
     martingale: M,
     /// Number of time steps processed
     time_step: u64,
+    /// Optional merge configuration (None = no merging, backward compatible)
+    merge_config: Option<MergeConfig>,
+    /// Optional merge state (allocated only when merge_config is Some)
+    merge_state: Option<MergeState>,
 }
 
 impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
@@ -67,6 +87,7 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
     /// * `combiner` - How sequential e-values are combined
     /// * `alternative` - Alternative hypothesis direction
     /// * `martingale` - The mixture supermartingale (shared across tests)
+    /// * `merge_config` - Optional merge configuration for intersection testing
     ///
     /// # Errors
     /// Returns `DimensionMismatch` if null_values length != n_tests.
@@ -79,6 +100,7 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
         combiner: CombinerType,
         alternative: AlternativeDirection,
         martingale: M,
+        merge_config: Option<MergeConfig>,
     ) -> Result<Self> {
         if null_values.len() != n_tests {
             return Err(EngineError::DimensionMismatch {
@@ -92,6 +114,8 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
             ));
         }
 
+        let merge_state = merge_config.as_ref().map(|_| MergeState::new());
+
         Ok(Self {
             state: ParTestState::zeros(n_tests),
             null_values,
@@ -102,6 +126,8 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
             alternative,
             martingale,
             time_step: 0,
+            merge_config,
+            merge_state,
         })
     }
 
@@ -131,7 +157,8 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
 
     /// Process one observation per test.
     ///
-    /// Returns a `StepResult` with the number of newly rejected tests.
+    /// Returns a `StepResult` with the number of newly rejected tests
+    /// and optional merged e-process fields.
     ///
     /// # Errors
     /// Returns `DimensionMismatch` if observations length != n_tests.
@@ -150,12 +177,50 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
             &self.martingale,
         )?;
 
+        // Apply merge if configured
+        if let (Some(ref config), Some(ref mut state)) =
+            (&self.merge_config, &mut self.merge_state)
+        {
+            merge::apply_merge(
+                &self.state.log_e_sequential,
+                &self.state.rejected,
+                config,
+                state,
+                self.log_threshold,
+                self.time_step,
+            );
+        }
+
         let n_rejected = self.state.rejected.iter().filter(|&&r| r).count();
+
+        // Build StepResult with optional merged fields
+        let (merged_e_value, log_merged_e_value, merged_e_process,
+             log_merged_e_process, merged_rejected, merged_p_value, merged_lambda) =
+            match &self.merge_state {
+                Some(ms) => (
+                    Some(ms.log_merged_e_value.exp()),
+                    Some(ms.log_merged_e_value),
+                    Some(ms.log_merged_e_process.exp()),
+                    Some(ms.log_merged_e_process),
+                    Some(ms.merged_rejected),
+                    Some(ms.merged_p_value),
+                    Some(ms.merged_lambda),
+                ),
+                None => (None, None, None, None, None, None, None),
+            };
+
         Ok(StepResult {
             time_step: self.time_step,
             n_rejected,
             n_tests: self.n_tests(),
             n_newly_rejected,
+            merged_e_value,
+            log_merged_e_value,
+            merged_e_process,
+            log_merged_e_process,
+            merged_rejected,
+            merged_p_value,
+            merged_lambda,
         })
     }
 
@@ -206,6 +271,38 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
     pub fn log_threshold(&self) -> f64 {
         self.log_threshold
     }
+
+    // ── Merge accessors ───────────────────────────────────────────────
+
+    /// Current merged e-value (spatial merge output). None if merge not configured.
+    pub fn merged_e_value(&self) -> Option<f64> {
+        self.merge_state.as_ref().map(|ms| ms.log_merged_e_value.exp())
+    }
+
+    /// Current log merged e-process (temporal). None if merge not configured.
+    pub fn log_merged_e_process(&self) -> Option<f64> {
+        self.merge_state.as_ref().map(|ms| ms.log_merged_e_process)
+    }
+
+    /// Whether the intersection null has been rejected. None if merge not configured.
+    pub fn merged_rejected(&self) -> Option<bool> {
+        self.merge_state.as_ref().map(|ms| ms.merged_rejected)
+    }
+
+    /// Merged p-value. None if merge not configured.
+    pub fn merged_p_value(&self) -> Option<f64> {
+        self.merge_state.as_ref().map(|ms| ms.merged_p_value)
+    }
+
+    /// Merged stopping time (0 = not stopped). None if merge not configured.
+    pub fn merged_stopping_time(&self) -> Option<u64> {
+        self.merge_state.as_ref().map(|ms| ms.merged_stopping_time)
+    }
+
+    /// Current merged temporal lambda. None if merge not configured.
+    pub fn merged_lambda(&self) -> Option<f64> {
+        self.merge_state.as_ref().map(|ms| ms.merged_lambda)
+    }
 }
 
 /// Result of a single step over all tests.
@@ -216,4 +313,19 @@ pub struct StepResult {
     pub n_tests: usize,
     /// Number of tests newly rejected in this step.
     pub n_newly_rejected: u64,
+    // ── Merged fields (populated only when merge is configured) ──
+    /// Spatially merged e-value F(E_1^t, ..., E_K^t).
+    pub merged_e_value: Option<f64>,
+    /// Log of the spatially merged e-value.
+    pub log_merged_e_value: Option<f64>,
+    /// Current temporal merged e-process M_t.
+    pub merged_e_process: Option<f64>,
+    /// Log of the temporal merged e-process.
+    pub log_merged_e_process: Option<f64>,
+    /// Whether the intersection null has been rejected (Ville's inequality on M_t).
+    pub merged_rejected: Option<bool>,
+    /// Merged p-value: min(1, exp(-log M_t)).
+    pub merged_p_value: Option<f64>,
+    /// Current merged temporal betting fraction.
+    pub merged_lambda: Option<f64>,
 }

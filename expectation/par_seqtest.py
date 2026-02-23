@@ -8,11 +8,20 @@ The engine delegates the per-test hot loop and cross-test multiple testing
 corrections to Rust (rayon parallelism, SoA memory layout) while exposing
 Pydantic-typed configuration and results on the Python side.
 
+When ``global_merge`` is configured, the engine additionally merges all K
+per-step e-values into a single merged e-value (Vovk & Wang 2024, Corollary 1)
+and accumulates it temporally into an e-process for the intersection
+hypothesis (Ramdas & Wang 2025, Definition 7.21).
+
 Based on these papers:
 
 Hypothesis testing with e-values, A. Ramdas, R. Wang (2025)
     - Ch. 4: Multiple testing with e-values (e-BH, e-Bonferroni, e-Holm)
     - Ch. 7: E-processes and sequential e-values (Definition 7.21, Proposition 7.20)
+    - Ch. 8: Merging e-values (Definitions 8.1, 8.5, 8.9, 8.10, Theorem 8.4)
+
+Merging sequential e-values via martingales, V. Vovk, R. Wang (2024)
+    - Section 4: Theorem 1, Corollary 1
 
 Time-uniform, nonparametric, nonasymptotic confidence sequences,
 S.R. Howard, A. Ramdas, J. McAuliffe, J. Sekhon (2022)
@@ -24,11 +33,11 @@ I. Waudby-Smith, A. Ramdas (2024)
 """
 
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from expectation._rust import PyParallelSequentialTest
 
@@ -112,6 +121,26 @@ class MultipleTestingMethod(str, Enum):
     E_HOLM = "e_holm"
 
 
+class MergingMethod(str, Enum):
+    """Merging function for combining K e-values into one.
+
+    All are martingale merging functions (admissible se-merging functions).
+
+    Reference: Vovk & Wang (2024), Corollary 1; Ramdas & Wang (2025), Ch. 8.
+
+    ARITHMETIC_MEAN: F(e) = mean(e_k). Most conservative. [Proposition 8.3]
+    U_STATISTIC: F(e) = U_n(e). ESP-based, O(K*n). [Definition 8.9]
+    LAMBDA_PRODUCT: F(e) = prod(1-lambda+lambda*e_k). [Definition 8.5]
+    SEGMENT_PRODUCT: Partition -> mean per segment -> product. [Definition 8.10]
+    PRODUCT: F(e) = prod(e_k). Most aggressive. [Theorem 8.4]
+    """
+    ARITHMETIC_MEAN = "arithmetic_mean"
+    U_STATISTIC = "u_statistic"
+    LAMBDA_PRODUCT = "lambda_product"
+    SEGMENT_PRODUCT = "segment_product"
+    PRODUCT = "product"
+
+
 # ---------------------------------------------------------------------------
 # Pydantic config models (frozen=True)
 # ---------------------------------------------------------------------------
@@ -150,6 +179,25 @@ class ParallelTestConfig(BaseModel):
         Cap for adaptive combiner lambda. Must be in (0, 1].
     epsilon : float
         Regularization for adaptive combiner. Must be > 0.
+    global_merge : MergingMethod, optional
+        Merging function for intersection hypothesis testing.
+        None (default) disables merging. (Vovk & Wang 2024, Corollary 1)
+    merge_u_order : int
+        U-statistic order n for U_STATISTIC merge. Default 1.
+    merge_lambda_param : float
+        Lambda parameter for LAMBDA_PRODUCT merge. Default 0.5.
+    merge_segments : list of int, optional
+        Segment boundaries for SEGMENT_PRODUCT merge.
+    merge_combiner : CombinerStrategy
+        Temporal combiner for the merged stream. Default ALL_IN.
+    merge_conservative_lambda : float
+        Lambda for conservative merge temporal combiner. Default 0.5.
+    merge_gamma : float
+        Cap for adaptive merge temporal combiner. Default 0.5.
+    merge_epsilon : float
+        Regularization for adaptive merge temporal combiner. Default 1e-6.
+    merge_include_rejected : bool
+        Include rejected tests in merge. Default True.
     """
     n_tests: int = Field(gt=0, description="Number of simultaneous hypothesis tests")
     alpha: float = Field(gt=0, lt=1, default=0.05, description="Significance level")
@@ -164,7 +212,35 @@ class ParallelTestConfig(BaseModel):
     gamma: float = Field(gt=0, le=1, default=0.5, description="Cap for adaptive combiner lambda")
     epsilon: float = Field(gt=0, default=1e-6, description="Regularization for adaptive combiner")
 
+    # ── Merge configuration (V&W 2024, R&W 2025 Ch. 8) ──
+    global_merge: Optional[MergingMethod] = Field(
+        default=None,
+        description="Merging function for intersection hypothesis (None = disabled)",
+    )
+    merge_u_order: int = Field(default=1, ge=0, description="U-statistic order n")
+    merge_lambda_param: float = Field(default=0.5, gt=0, le=1, description="Lambda for lambda-product merge")
+    merge_segments: Optional[List[int]] = Field(default=None, description="Segment boundaries for segment-product merge")
+    merge_combiner: CombinerStrategy = Field(default=CombinerStrategy.ALL_IN, description="Temporal combiner for merged stream")
+    merge_conservative_lambda: float = Field(default=0.5, gt=0, lt=1, description="Lambda for conservative merge combiner")
+    merge_gamma: float = Field(default=0.5, gt=0, le=1, description="Cap for adaptive merge combiner")
+    merge_epsilon: float = Field(default=1e-6, gt=0, description="Regularization for adaptive merge combiner")
+    merge_include_rejected: bool = Field(default=True, description="Include rejected tests in merge")
+
     model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="after")
+    def _validate_merge(self) -> "ParallelTestConfig":
+        if self.global_merge == MergingMethod.SEGMENT_PRODUCT:
+            if self.merge_segments is None:
+                raise ValueError(
+                    "merge_segments is required when global_merge is SEGMENT_PRODUCT"
+                )
+        if self.global_merge == MergingMethod.U_STATISTIC:
+            if self.merge_u_order > self.n_tests:
+                raise ValueError(
+                    f"merge_u_order ({self.merge_u_order}) must be <= n_tests ({self.n_tests})"
+                )
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -187,11 +263,35 @@ class StepResult(BaseModel):
         Total number of tests.
     n_newly_rejected : int
         Number of tests newly rejected in this step.
+    merged_e_value : float, optional
+        Spatially merged e-value F(E_1^t, ..., E_K^t).
+        Only populated when global_merge is configured.
+    log_merged_e_value : float, optional
+        Log of the spatially merged e-value.
+    merged_e_process : float, optional
+        Current temporal merged e-process M_t.
+    log_merged_e_process : float, optional
+        Log of the temporal merged e-process.
+    merged_rejected : bool, optional
+        Whether M_t >= 1/alpha (Ville's inequality on merged e-process).
+    merged_p_value : float, optional
+        Merged p-value: min(1, exp(-log M_t)).
+    merged_lambda : float, optional
+        Current merged temporal betting fraction.
     """
     time_step: int = Field(ge=1)
     n_rejected: int = Field(ge=0)
     n_tests: int = Field(gt=0)
     n_newly_rejected: int = Field(ge=0)
+
+    # Merged fields (populated only when global_merge is configured)
+    merged_e_value: Optional[float] = None
+    log_merged_e_value: Optional[float] = None
+    merged_e_process: Optional[float] = None
+    log_merged_e_process: Optional[float] = None
+    merged_rejected: Optional[bool] = None
+    merged_p_value: Optional[float] = None
+    merged_lambda: Optional[float] = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -239,6 +339,11 @@ class ParallelSequentialTest:
     for per-test stopping and supports cross-test error control via
     e-Bonferroni (FWER), e-BH (FDR), and e-Holm (FWER).
 
+    When ``global_merge`` is configured, the engine additionally merges
+    all K per-step e-values into a single merged e-value (Vovk & Wang 2024)
+    and accumulates it temporally into an e-process for the intersection
+    hypothesis (Ramdas & Wang 2025, Definition 7.21).
+
     Parameters
     ----------
     config : ParallelTestConfig
@@ -251,7 +356,8 @@ class ParallelSequentialTest:
 
     References
     ----------
-    - Ramdas & Wang (2025). Hypothesis testing with e-values, Ch. 4 & 7.
+    - Ramdas & Wang (2025). Hypothesis testing with e-values, Ch. 4, 7 & 8.
+    - Vovk & Wang (2024). Merging sequential e-values via martingales.
     - Howard, Ramdas, McAuliffe, Sekhon (2022). Time-uniform confidence
       sequences, Section 3.
     - Waudby-Smith & Ramdas (2024). Estimating means of bounded random
@@ -282,6 +388,20 @@ class ParallelSequentialTest:
             if config.martingale_type == MartingaleType.TWO_SIDED_NORMAL:
                 martingale_type = MartingaleType.ONE_SIDED_NORMAL.value
 
+        # Build merge kwargs
+        merge_kwargs = {}
+        if config.global_merge is not None:
+            merge_kwargs["global_merge"] = config.global_merge.value
+            merge_kwargs["merge_u_order"] = config.merge_u_order
+            merge_kwargs["merge_lambda_param"] = config.merge_lambda_param
+            if config.merge_segments is not None:
+                merge_kwargs["merge_segments"] = list(config.merge_segments)
+            merge_kwargs["merge_combiner"] = config.merge_combiner.value
+            merge_kwargs["merge_conservative_lambda"] = config.merge_conservative_lambda
+            merge_kwargs["merge_gamma"] = config.merge_gamma
+            merge_kwargs["merge_epsilon"] = config.merge_epsilon
+            merge_kwargs["merge_include_rejected"] = config.merge_include_rejected
+
         self._inner = PyParallelSequentialTest(
             n_tests=config.n_tests,
             null_values=null_arr.tolist(),
@@ -296,6 +416,7 @@ class ParallelSequentialTest:
             conservative_lambda=config.conservative_lambda,
             gamma=config.gamma,
             epsilon=config.epsilon,
+            **merge_kwargs,
         )
 
     @property
@@ -315,7 +436,7 @@ class ParallelSequentialTest:
         -------
         StepResult
             Frozen Pydantic model with time_step, n_rejected, n_tests,
-            n_newly_rejected.
+            n_newly_rejected, and optional merged fields.
         """
         observations = np.asarray(observations, dtype=np.float64)
         raw = self._inner.step(observations)
@@ -324,6 +445,13 @@ class ParallelSequentialTest:
             n_rejected=raw["n_rejected"],
             n_tests=raw["n_tests"],
             n_newly_rejected=raw["n_newly_rejected"],
+            merged_e_value=raw.get("merged_e_value"),
+            log_merged_e_value=raw.get("log_merged_e_value"),
+            merged_e_process=raw.get("merged_e_process"),
+            log_merged_e_process=raw.get("log_merged_e_process"),
+            merged_rejected=raw.get("merged_rejected"),
+            merged_p_value=raw.get("merged_p_value"),
+            merged_lambda=raw.get("merged_lambda"),
         )
 
     def log_e_processes(self) -> NDArray[np.float64]:
@@ -364,6 +492,35 @@ class ParallelSequentialTest:
     def lambdas(self) -> NDArray[np.float64]:
         """Per-test current betting fractions (lambda)."""
         return np.asarray(self._inner.lambdas())
+
+    # ── Merge accessors ───────────────────────────────────────────────
+
+    def merged_e_value(self) -> Optional[float]:
+        """Current merged e-value (spatial). None if merge not configured."""
+        return self._inner.merged_e_value()
+
+    def log_merged_e_process(self) -> Optional[float]:
+        """Current log merged e-process (temporal). None if merge not configured."""
+        return self._inner.log_merged_e_process()
+
+    def merged_rejected(self) -> Optional[bool]:
+        """Whether the intersection null has been rejected. None if merge not configured."""
+        return self._inner.merged_rejected()
+
+    def merged_p_value(self) -> Optional[float]:
+        """Merged p-value. None if merge not configured."""
+        return self._inner.merged_p_value()
+
+    def merged_stopping_time(self) -> Optional[int]:
+        """Merged stopping time (0 = not stopped). None if merge not configured."""
+        val = self._inner.merged_stopping_time()
+        return int(val) if val is not None else None
+
+    def merged_lambda(self) -> Optional[float]:
+        """Current merged temporal lambda. None if merge not configured."""
+        return self._inner.merged_lambda()
+
+    # ── Multiple testing corrections ──────────────────────────────────
 
     def e_bonferroni(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-Bonferroni correction for FWER control.
