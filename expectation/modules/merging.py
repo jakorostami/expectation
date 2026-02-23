@@ -480,3 +480,44 @@ class SegmentProductMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
+class ProductMerger(EValueMerger):
+    """
+    Product merging: F(e) = e_1 * e_2 * ... * e_K.
+
+    The most aggressive admissible merging function. Equivalent to
+    all-in betting (s_k = 1 for all k). Highest variance among
+    precise se-merging functions (Proposition 2 / R&W Prop 8.16).
+
+    References
+    ----------
+    Vovk & Wang (2024) Section 4 Eq. (12); Ramdas & Wang (2025) Theorem 8.4.
+    """
+
+    def merge(self, e_values: NDArray) -> MergingResult:
+        e_values = np.asarray(e_values, dtype=np.float64)
+        if len(e_values) == 0:
+            raise ValueError("e_values must be non-empty")
+        is_valid = self._validate(e_values)
+
+        # Compute in log-space for stability
+        if np.any(e_values == 0):
+            log_merged = -np.inf
+            merged = 0.0
+        else:
+            log_merged = float(np.sum(np.log(e_values)))
+            merged = float(np.exp(log_merged))
+
+        return MergingResult(
+            merged_e_value=merged,
+            log_merged_e_value=log_merged,
+            K=len(e_values),
+            merging_function=MergingFunction.PRODUCT,
+            is_valid=is_valid,
+        )
+
+    def gambling_system(self, past_e_values: List[float], k: int) -> float:
+        return 1.0
+
+    def reset(self) -> None:
+        pass
