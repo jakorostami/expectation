@@ -521,3 +521,128 @@ class ProductMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
+
+def create_merger(config: MergingConfig) -> EValueMerger:
+    """
+    Create an EValueMerger from a MergingConfig.
+
+    Parameters
+    ----------
+    config : MergingConfig
+        Configuration specifying which merging function and its parameters.
+
+    Returns
+    -------
+    EValueMerger
+    """
+    func = config.merging_function
+
+    if func == MergingFunction.ARITHMETIC_MEAN:
+        if config.K is None:
+            raise ValueError("K is required for ArithmeticMeanMerger")
+        return ArithmeticMeanMerger(K=config.K)
+
+    elif func == MergingFunction.U_STATISTIC:
+        if config.K is None:
+            raise ValueError("K is required for UStatisticMerger")
+        return UStatisticMerger(n=config.u_order, K=config.K)
+
+    elif func == MergingFunction.LAMBDA_PRODUCT:
+        return LambdaProductMerger(lambda_param=config.lambda_param)
+
+    elif func == MergingFunction.SEGMENT_PRODUCT:
+        if config.K is None:
+            raise ValueError("K is required for SegmentProductMerger")
+        if config.segments is None:
+            raise ValueError("segments is required for SegmentProductMerger")
+        return SegmentProductMerger(segments=list(config.segments), K=config.K)
+
+    elif func == MergingFunction.PRODUCT:
+        return ProductMerger()
+
+    else:
+        raise ValueError(f"Unknown merging function: {func}")
+
+
+
+def arithmetic_mean_merge(e_values: NDArray) -> float:
+    """
+    Merge e-values by arithmetic mean.
+
+    Parameters
+    ----------
+    e_values : NDArray
+        Array of e-values.
+
+    Returns
+    -------
+    float
+        The merged e-value (arithmetic mean).
+    """
+    e_values = np.asarray(e_values, dtype=np.float64)
+    return float(np.mean(e_values))
+
+
+def u_statistic_merge(e_values: NDArray, n: int) -> float:
+    """
+    Merge e-values via the U-statistic of order n.
+
+    Parameters
+    ----------
+    e_values : NDArray
+        Array of K e-values.
+    n : int
+        Order of the U-statistic. U_0=1, U_1=mean, U_K=product.
+
+    Returns
+    -------
+    float
+        The U_n merged e-value.
+    """
+    e_values = np.asarray(e_values, dtype=np.float64)
+    return UStatisticMerger._compute_u_statistic(e_values, n)
+
+
+def lambda_product_merge(e_values: NDArray, lambda_param: float = 0.5) -> float:
+    """
+    Merge e-values via the lambda-product.
+
+    Parameters
+    ----------
+    e_values : NDArray
+        Array of e-values.
+    lambda_param : float
+        Hedging parameter in (0, 1]. Default 0.5.
+
+    Returns
+    -------
+    float
+        The lambda-product merged e-value.
+    """
+    merger = LambdaProductMerger(lambda_param=lambda_param)
+    result = merger.merge(e_values)
+    return result.merged_e_value
+
+
+def segment_product_merge(e_values: NDArray, segments: List[int]) -> float:
+    """
+    Merge e-values via segment-product.
+
+    Parameters
+    ----------
+    e_values : NDArray
+        Array of K e-values.
+    segments : list of int
+        Indices where new segments start.
+
+    Returns
+    -------
+    float
+        The segment-product merged e-value.
+    """
+    e_values = np.asarray(e_values, dtype=np.float64)
+    K = len(e_values)
+    merger = SegmentProductMerger(segments=segments, K=K)
+    result = merger.merge(e_values)
+    return result.merged_e_value
