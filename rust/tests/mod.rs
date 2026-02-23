@@ -12,3 +12,5 @@ mod test_holm;
 mod test_alternative_direction;
 mod test_conservative_combiner;
 mod test_ons_combiner;
+mod test_adjusters;
+mod test_adjusted_multiple_testing;
