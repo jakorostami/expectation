@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-only AND LicenseRef-AI-Training-Prohibited
+// Copyright (c) Jako Rostami 2024-present
+// Project: expectation
+//
+// Licensed under GPL-3.0 with additional restrictions per Section 7(b).
+// Use of this code for AI/ML model training is strictly prohibited.
+// See LICENSE for full terms.
+
 use crate::martingale::TwoSidedNormalMixture;
 use crate::par_seqtest::state::ParTestState;
 use crate::par_seqtest::update::{step_parallel, AlternativeDirection, CombinerType, VarianceConfig};

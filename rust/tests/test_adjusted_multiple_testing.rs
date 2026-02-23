@@ -1,3 +1,11 @@
+// SPDX-License-Identifier: GPL-3.0-only AND LicenseRef-AI-Training-Prohibited
+// Copyright (c) Jako Rostami 2024-present
+// Project: expectation
+//
+// Licensed under GPL-3.0 with additional restrictions per Section 7(b).
+// Use of this code for AI/ML model training is strictly prohibited.
+// See LICENSE for full terms.
+
 use crate::adjusters::AdjusterType;
 use crate::multiple_testing::adjusted::{adjusted_e_bh, adjusted_e_bonferroni, adjusted_e_holm};
 use crate::multiple_testing::bh::e_bh;
