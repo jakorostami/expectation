@@ -377,3 +377,106 @@ class LambdaProductMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
+class SegmentProductMerger(EValueMerger):
+    """
+    Segment-product merging: partition e-values into segments, average
+    within each segment, then multiply the segment averages.
+
+    F(e) = prod_{i=1}^{m} mean(e_{a_i}, ..., e_{b_i})
+
+    Interpolates between arithmetic mean (single segment) and product
+    (K singletons).
+
+    Gambling system: within each segment, the gambling fraction follows the
+    arithmetic-mean pattern for that segment's size.
+
+    References
+    ----------
+    Vovk & Wang (2024) Section 4 p.10; Ramdas & Wang (2025) Definition 8.10.
+    """
+
+    def __init__(self, segments: List[int], K: int):
+        """
+        Parameters
+        ----------
+        segments : list of int
+            Indices where new segments start (0-based). E.g., [3, 7] means
+            three segments: [0,3), [3,7), [7,K).
+        K : int
+            Total number of e-values.
+        """
+        if K < 1:
+            raise ValueError(f"K must be >= 1, got {K}")
+        if not segments:
+            raise ValueError("segments must be non-empty")
+        for i, s in enumerate(segments):
+            if s < 1:
+                raise ValueError(f"segment boundaries must be >= 1, got {s}")
+            if i > 0 and s <= segments[i - 1]:
+                raise ValueError("segment boundaries must be strictly increasing")
+        if segments[-1] >= K:
+            raise ValueError(
+                f"last segment boundary {segments[-1]} must be < K={K}"
+            )
+        self.segments = segments
+        self.K = K
+
+    def _get_segment_ranges(self, K: int) -> List[tuple]:
+        boundaries = [0] + list(self.segments) + [K]
+        return [(boundaries[i], boundaries[i + 1]) for i in range(len(boundaries) - 1)]
+
+    def merge(self, e_values: NDArray) -> MergingResult:
+        e_values = np.asarray(e_values, dtype=np.float64)
+        if len(e_values) == 0:
+            raise ValueError("e_values must be non-empty")
+        is_valid = self._validate(e_values)
+        K = len(e_values)
+
+        ranges = self._get_segment_ranges(K)
+        log_merged = 0.0
+        for start, end in ranges:
+            seg_mean = float(np.mean(e_values[start:end]))
+            if seg_mean <= 0:
+                log_merged = -np.inf
+                break
+            log_merged += np.log(seg_mean)
+
+        merged = float(np.exp(log_merged)) if log_merged > -np.inf else 0.0
+
+        return MergingResult(
+            merged_e_value=merged,
+            log_merged_e_value=log_merged,
+            K=K,
+            merging_function=MergingFunction.SEGMENT_PRODUCT,
+            is_valid=is_valid,
+        )
+
+    def gambling_system(self, past_e_values: List[float], k: int) -> float:
+        # Within each segment, the gambling fraction follows the
+        # arithmetic-mean pattern for that segment's size.
+        # s_k = 1 / (seg_size * S_k^{seg}) where S_k^{seg} is the running
+        # average within the current segment.
+        ranges = self._get_segment_ranges(self.K)
+
+        # Find which segment k belongs to
+        for start, end in ranges:
+            if k < end:
+                seg_size = end - start
+                # Position within this segment
+                pos_in_seg = k - start
+                if pos_in_seg == 0:
+                    return 1.0 / seg_size
+
+                seg_values = past_e_values[start:k]
+                running_sum = sum(seg_values)
+                remaining = seg_size - pos_in_seg
+                s_seg = (running_sum + remaining) / seg_size
+                if s_seg <= 0:
+                    return 0.0
+                return min(1.0, 1.0 / (seg_size * s_seg))
+
+        return 0.0
+
+    def reset(self) -> None:
+        pass
