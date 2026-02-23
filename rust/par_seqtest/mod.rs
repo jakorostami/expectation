@@ -247,6 +247,14 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
         &self.state.rejected
     }
 
+    /// Per-test running maxima: log(max_{s<=t} M_s) for each test.
+    ///
+    /// Used by adjusted multiple testing procedures for carefree error control.
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), Section 2.
+    pub fn max_log_m(&self) -> &[f64] {
+        &self.state.max_log_m
+    }
+
     /// Per-step sequential log e-values: log(E_t) = log_e_cum_t - prev_log_e_cum.
     pub fn log_e_sequential(&self) -> &[f64] {
         &self.state.log_e_sequential

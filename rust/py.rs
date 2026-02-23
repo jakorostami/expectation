@@ -8,10 +8,11 @@ use numpy::PyArray1;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+use crate::adjusters::AdjusterType;
 use crate::error::EngineError;
 use crate::martingale::{OneSidedNormalMixture, TwoSidedNormalMixture};
 use crate::merge::{MergeCombinerType, MergeConfig, MergeFunction};
-use crate::multiple_testing::{bh, bonferroni, holm};
+use crate::multiple_testing::{adjusted, bh, bonferroni, holm};
 use crate::par_seqtest::update::{AlternativeDirection, CombinerType, VarianceConfig};
 use crate::par_seqtest::ParallelSequentialTest;
 
@@ -390,6 +391,10 @@ impl PyParallelSequentialTest {
     // ── Multiple testing corrections ──────────────────────────────────
 
     /// Apply e-Bonferroni correction for FWER control.
+    ///
+    /// WARNING: Not carefree. Rejections can disappear with more data.
+    /// For FWER-sup control with monotone rejections, use `adjusted_e_bonferroni()`.
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
     #[pyo3(signature = (alpha=None))]
     fn e_bonferroni<'py>(
         &self,
@@ -410,6 +415,10 @@ impl PyParallelSequentialTest {
     }
 
     /// Apply e-BH procedure for FDR control.
+    ///
+    /// WARNING: Not carefree. Rejections can disappear with more data.
+    /// For FDR-sup control with monotone rejections, use `adjusted_e_bh()`.
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
     #[pyo3(signature = (alpha=None))]
     fn e_bh<'py>(
         &self,
@@ -430,6 +439,10 @@ impl PyParallelSequentialTest {
     }
 
     /// Apply e-Holm step-down procedure for FWER control.
+    ///
+    /// WARNING: Not carefree. Rejections can disappear with more data.
+    /// For FWER-sup control with monotone rejections, use `adjusted_e_holm()`.
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
     #[pyo3(signature = (alpha=None))]
     fn e_holm<'py>(
         &self,
@@ -442,6 +455,116 @@ impl PyParallelSequentialTest {
         };
         let alpha = alpha.unwrap_or(default_alpha);
         let result = holm::e_holm(log_e, alpha);
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("rejected", PyArray1::from_slice_bound(py, &result.rejected))?;
+        dict.set_item("n_rejected", result.n_rejected)?;
+        Ok(dict)
+    }
+
+    // ── Running maxima accessor ──────────────────────────────────────
+
+    /// Get per-test running maxima: log(max_{s<=t} M_s) as numpy array.
+    ///
+    /// Used by adjusted multiple testing procedures for carefree error control.
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), Section 2.
+    fn max_log_m<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<f64>>> {
+        let values = match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => pst.max_log_m(),
+            MartingaleKind::OneSidedNormal(pst) => pst.max_log_m(),
+        };
+        Ok(PyArray1::from_slice_bound(py, values))
+    }
+
+    // ── Adjusted (carefree) multiple testing corrections ─────────────
+
+    /// Apply adjusted e-BH procedure for carefree FDR control.
+    ///
+    /// Applies an admissible adjuster to running maxima of e-processes,
+    /// then runs e-BH. Controls FDR-sup at level K₀α/K, yielding
+    /// monotonically non-decreasing rejections over time.
+    ///
+    /// Args:
+    ///     alpha: Target FDR level (default: engine alpha).
+    ///     adjuster: "lookback" or "sqrt" (default: "lookback").
+    ///
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), Theorem 1.
+    #[pyo3(signature = (alpha=None, adjuster="lookback"))]
+    fn adjusted_e_bh<'py>(
+        &self,
+        py: Python<'py>,
+        alpha: Option<f64>,
+        adjuster: &str,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let adj = parse_adjuster(adjuster)?;
+        let (max_log, default_alpha) = match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+            MartingaleKind::OneSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+        };
+        let alpha = alpha.unwrap_or(default_alpha);
+        let result = adjusted::adjusted_e_bh(max_log, alpha, adj);
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("rejected", PyArray1::from_slice_bound(py, &result.rejected))?;
+        dict.set_item("n_rejected", result.n_rejected)?;
+        Ok(dict)
+    }
+
+    /// Apply adjusted e-Bonferroni procedure for carefree FWER control.
+    ///
+    /// Applies an admissible adjuster to running maxima of e-processes,
+    /// then runs e-Bonferroni.
+    ///
+    /// Args:
+    ///     alpha: Target FWER level (default: engine alpha).
+    ///     adjuster: "lookback" or "sqrt" (default: "lookback").
+    ///
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), Theorem 1.
+    #[pyo3(signature = (alpha=None, adjuster="lookback"))]
+    fn adjusted_e_bonferroni<'py>(
+        &self,
+        py: Python<'py>,
+        alpha: Option<f64>,
+        adjuster: &str,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let adj = parse_adjuster(adjuster)?;
+        let (max_log, default_alpha) = match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+            MartingaleKind::OneSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+        };
+        let alpha = alpha.unwrap_or(default_alpha);
+        let result = adjusted::adjusted_e_bonferroni(max_log, alpha, adj);
+
+        let dict = PyDict::new_bound(py);
+        dict.set_item("rejected", PyArray1::from_slice_bound(py, &result.rejected))?;
+        dict.set_item("n_rejected", result.n_rejected)?;
+        Ok(dict)
+    }
+
+    /// Apply adjusted e-Holm procedure for carefree FWER control.
+    ///
+    /// Applies an admissible adjuster to running maxima of e-processes,
+    /// then runs e-Holm.
+    ///
+    /// Args:
+    ///     alpha: Target FWER level (default: engine alpha).
+    ///     adjuster: "lookback" or "sqrt" (default: "lookback").
+    ///
+    /// Reference: Tavyrikov, Goeman & de Heide (2025), Theorem 1.
+    #[pyo3(signature = (alpha=None, adjuster="lookback"))]
+    fn adjusted_e_holm<'py>(
+        &self,
+        py: Python<'py>,
+        alpha: Option<f64>,
+        adjuster: &str,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let adj = parse_adjuster(adjuster)?;
+        let (max_log, default_alpha) = match &self.inner {
+            MartingaleKind::TwoSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+            MartingaleKind::OneSidedNormal(pst) => (pst.max_log_m(), pst.alpha()),
+        };
+        let alpha = alpha.unwrap_or(default_alpha);
+        let result = adjusted::adjusted_e_holm(max_log, alpha, adj);
 
         let dict = PyDict::new_bound(py);
         dict.set_item("rejected", PyArray1::from_slice_bound(py, &result.rejected))?;
@@ -497,6 +620,19 @@ fn parse_float_input(
         .into());
     }
     Ok(arr)
+}
+
+/// Parse adjuster type from Python string.
+fn parse_adjuster(name: &str) -> PyResult<AdjusterType> {
+    match name {
+        "lookback" => Ok(AdjusterType::Lookback),
+        "sqrt" => Ok(AdjusterType::Sqrt),
+        other => Err(EngineError::InvalidParameter(format!(
+            "Unknown adjuster: '{}'. Supported: 'lookback', 'sqrt'",
+            other
+        ))
+        .into()),
+    }
 }
 
 /// Register the ParallelSequentialTest class and related items into the _rust module.

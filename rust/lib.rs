@@ -17,6 +17,7 @@
 //! - Howard, Ramdas, McAuliffe, Sekhon (2022). Time-uniform confidence sequences.
 //! - Ramdas, Wang (2025). Hypothesis testing with e-values, Ch. 4 & 7.
 
+pub mod adjusters;
 pub mod error;
 pub mod math;
 pub mod martingale;

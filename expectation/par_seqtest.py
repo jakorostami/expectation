@@ -42,53 +42,18 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from expectation._rust import PyParallelSequentialTest
 
 
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
-
 class MartingaleType(str, Enum):
-    """Mixture supermartingale types for the parallel engine.
-
-    TWO_SIDED_NORMAL: Two-sided normal mixture (Howard et al. 2022, Section 3).
-        log M(s, v) = 0.5 * ln(rho / (v + rho)) + s^2 / (2 * (v + rho))
-
-    ONE_SIDED_NORMAL: One-sided normal mixture (Howard et al. 2022, Section 3).
-        log M(s, v) = 0.5 * ln(4rho / (v + rho)) + s^2 / (2 * (v + rho))
-                      + ln(Phi(s / sqrt(v + rho)))
-    """
     TWO_SIDED_NORMAL = "two_sided_normal"
     ONE_SIDED_NORMAL = "one_sided_normal"
 
 
 class AlternativeDirection(str, Enum):
-    """Alternative hypothesis direction.
-
-    Reference: Ramdas & Wang (2025), Section 2.1.
-
-    TWO_SIDED: Test H1: mu != mu_0 (uses TwoSidedNormalMixture).
-    GREATER: Test H1: mu > mu_0 (uses OneSidedNormalMixture).
-    LESS: Test H1: mu < mu_0 (uses OneSidedNormalMixture with negated s).
-    """
     TWO_SIDED = "two_sided"
     GREATER = "greater"
     LESS = "less"
 
 
 class CombinerStrategy(str, Enum):
-    """How sequential e-values are combined into an e-process.
-
-    Reference: Ramdas & Wang (2025), Definition 7.21.
-
-    ALL_IN: lambda_t = 1 for all t (Proposition 7.20).
-        E-process = cumulative supermartingale. Most powerful but fragile.
-
-    CONSERVATIVE: Fixed lambda < 1.
-        E-process = product((1-lambda) + lambda * E_t). More robust.
-
-    EMPIRICALLY_ADAPTIVE: ONS-based adaptive betting (Theorem 7.22).
-        lambda_t = clamp(S1/(S2+epsilon), [0, gamma]).
-        Adapts to signal strength. Reference: Waudby-Smith & Ramdas (2024).
-    """
     ALL_IN = "all_in"
     CONSERVATIVE = "conservative"
     EMPIRICALLY_ADAPTIVE = "empirically_adaptive"
@@ -107,43 +72,23 @@ class VarianceMode(str, Enum):
 
 
 class MultipleTestingMethod(str, Enum):
-    """Cross-test error control procedures.
-
-    E_BONFERRONI: FWER control via e-value Bonferroni
-        (Ramdas & Wang 2025, Section 4.1, Proposition 4.1).
-    E_BH: FDR control via e-value Benjamini-Hochberg
-        (Ramdas & Wang 2025, Section 4.2, Theorem 4.2).
-    E_HOLM: FWER control via e-value Holm step-down
-        (Ramdas & Wang 2025, Section 4.1, Proposition 4.3).
-    """
     E_BONFERRONI = "e_bonferroni"
     E_BH = "e_bh"
     E_HOLM = "e_holm"
 
 
+class AdjusterType(str, Enum):
+    LOOKBACK = "lookback"
+    SQRT = "sqrt"
+
+
 class MergingMethod(str, Enum):
-    """Merging function for combining K e-values into one.
-
-    All are martingale merging functions (admissible se-merging functions).
-
-    Reference: Vovk & Wang (2024), Corollary 1; Ramdas & Wang (2025), Ch. 8.
-
-    ARITHMETIC_MEAN: F(e) = mean(e_k). Most conservative. [Proposition 8.3]
-    U_STATISTIC: F(e) = U_n(e). ESP-based, O(K*n). [Definition 8.9]
-    LAMBDA_PRODUCT: F(e) = prod(1-lambda+lambda*e_k). [Definition 8.5]
-    SEGMENT_PRODUCT: Partition -> mean per segment -> product. [Definition 8.10]
-    PRODUCT: F(e) = prod(e_k). Most aggressive. [Theorem 8.4]
-    """
     ARITHMETIC_MEAN = "arithmetic_mean"
     U_STATISTIC = "u_statistic"
     LAMBDA_PRODUCT = "lambda_product"
     SEGMENT_PRODUCT = "segment_product"
     PRODUCT = "product"
 
-
-# ---------------------------------------------------------------------------
-# Pydantic config models (frozen=True)
-# ---------------------------------------------------------------------------
 
 class ParallelTestConfig(BaseModel):
     """Configuration for the parallel sequential testing engine.
@@ -243,10 +188,6 @@ class ParallelTestConfig(BaseModel):
         return self
 
 
-# ---------------------------------------------------------------------------
-# Pydantic result models (frozen=True)
-# ---------------------------------------------------------------------------
-
 class StepResult(BaseModel):
     """Result of processing one time step across all tests.
 
@@ -324,9 +265,6 @@ class MultipleTestingResult(BaseModel):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
 
-# ---------------------------------------------------------------------------
-# Main class
-# ---------------------------------------------------------------------------
 
 class ParallelSequentialTest:
     """High-performance parallel engine for massively concurrent sequential tests.
@@ -525,7 +463,12 @@ class ParallelSequentialTest:
     def e_bonferroni(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-Bonferroni correction for FWER control.
 
+        WARNING: Not carefree. Rejections can disappear with more data.
+        For FWER-sup control with monotone rejections, use
+        ``adjusted_e_bonferroni()``.
+
         Reference: Ramdas & Wang (2025), Section 4.1, Proposition 4.1.
+        See also: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_bonferroni(alpha=alpha)
@@ -539,7 +482,12 @@ class ParallelSequentialTest:
     def e_bh(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-BH procedure for FDR control.
 
+        WARNING: Not carefree. Rejections can disappear with more data.
+        For FDR-sup control with monotone rejections, use
+        ``adjusted_e_bh()``.
+
         Reference: Ramdas & Wang (2025), Section 4.2, Theorem 4.2.
+        See also: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_bh(alpha=alpha)
@@ -553,10 +501,141 @@ class ParallelSequentialTest:
     def e_holm(self, alpha: Optional[float] = None) -> MultipleTestingResult:
         """Apply e-Holm step-down procedure for FWER control.
 
+        WARNING: Not carefree. Rejections can disappear with more data.
+        For FWER-sup control with monotone rejections, use
+        ``adjusted_e_holm()``.
+
         Reference: Ramdas & Wang (2025), Section 4.1, Proposition 4.3.
+        See also: Tavyrikov, Goeman & de Heide (2025), arXiv:2501.19360v2.
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.e_holm(alpha=alpha)
+        return MultipleTestingResult(
+            rejected=np.asarray(raw["rejected"]),
+            n_rejected=raw["n_rejected"],
+            method=MultipleTestingMethod.E_HOLM,
+            alpha=used_alpha,
+        )
+
+    # ── Running maxima accessor ────────────────────────────────────
+
+    def max_log_m(self) -> NDArray[np.float64]:
+        """Per-test running maxima: log(max_{s<=t} M_s), shape (n_tests,).
+
+        Used by adjusted multiple testing procedures for carefree error
+        control. Each value tracks the maximum log e-process seen so far
+        for each test.
+
+        Reference: Tavyrikov, Goeman & de Heide (2025), Section 2.
+        """
+        return np.asarray(self._inner.max_log_m())
+
+    # ── Adjusted (carefree) multiple testing corrections ─────────
+
+    def adjusted_e_bh(
+        self,
+        alpha: Optional[float] = None,
+        adjuster: str = "lookback",
+    ) -> MultipleTestingResult:
+        """Apply adjusted e-BH for carefree FDR control.
+
+        Applies an admissible adjuster to running maxima of e-processes,
+        then runs e-BH. Controls FDR-sup at level K₀α/K, yielding
+        monotonically non-decreasing rejections over time.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Target FDR level (default: engine alpha).
+        adjuster : str
+            Which admissible adjuster: "lookback" or "sqrt".
+            Default "lookback".
+
+        Returns
+        -------
+        MultipleTestingResult
+
+        References
+        ----------
+        Tavyrikov, Goeman & de Heide (2025). Carefree multiple testing
+        with e-processes. arXiv:2501.19360v2, Theorem 1.
+        """
+        used_alpha = alpha if alpha is not None else self._config.alpha
+        raw = self._inner.adjusted_e_bh(alpha=alpha, adjuster=adjuster)
+        return MultipleTestingResult(
+            rejected=np.asarray(raw["rejected"]),
+            n_rejected=raw["n_rejected"],
+            method=MultipleTestingMethod.E_BH,
+            alpha=used_alpha,
+        )
+
+    def adjusted_e_bonferroni(
+        self,
+        alpha: Optional[float] = None,
+        adjuster: str = "lookback",
+    ) -> MultipleTestingResult:
+        """Apply adjusted e-Bonferroni for carefree FWER control.
+
+        Applies an admissible adjuster to running maxima of e-processes,
+        then runs e-Bonferroni.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Target FWER level (default: engine alpha).
+        adjuster : str
+            Which admissible adjuster: "lookback" or "sqrt".
+            Default "lookback".
+
+        Returns
+        -------
+        MultipleTestingResult
+
+        References
+        ----------
+        Tavyrikov, Goeman & de Heide (2025). Carefree multiple testing
+        with e-processes. arXiv:2501.19360v2, Theorem 1.
+        """
+        used_alpha = alpha if alpha is not None else self._config.alpha
+        raw = self._inner.adjusted_e_bonferroni(
+            alpha=alpha, adjuster=adjuster,
+        )
+        return MultipleTestingResult(
+            rejected=np.asarray(raw["rejected"]),
+            n_rejected=raw["n_rejected"],
+            method=MultipleTestingMethod.E_BONFERRONI,
+            alpha=used_alpha,
+        )
+
+    def adjusted_e_holm(
+        self,
+        alpha: Optional[float] = None,
+        adjuster: str = "lookback",
+    ) -> MultipleTestingResult:
+        """Apply adjusted e-Holm for carefree FWER control.
+
+        Applies an admissible adjuster to running maxima of e-processes,
+        then runs e-Holm.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Target FWER level (default: engine alpha).
+        adjuster : str
+            Which admissible adjuster: "lookback" or "sqrt".
+            Default "lookback".
+
+        Returns
+        -------
+        MultipleTestingResult
+
+        References
+        ----------
+        Tavyrikov, Goeman & de Heide (2025). Carefree multiple testing
+        with e-processes. arXiv:2501.19360v2, Theorem 1.
+        """
+        used_alpha = alpha if alpha is not None else self._config.alpha
+        raw = self._inner.adjusted_e_holm(alpha=alpha, adjuster=adjuster)
         return MultipleTestingResult(
             rejected=np.asarray(raw["rejected"]),
             n_rejected=raw["n_rejected"],

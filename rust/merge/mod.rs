@@ -484,7 +484,7 @@ mod tests {
         apply_merge(&log_e_seq, &rejected, &config, &mut state, log_threshold, 1);
 
         // Mean of [1, 2, 3] = 2.0
-        let expected_merged = 2.0;
+        let expected_merged = 2.0_f64;
         let expected_log = expected_merged.ln();
         assert!((state.log_merged_e_value - expected_log).abs() < 1e-13);
         assert!((state.log_merged_e_process - expected_log).abs() < 1e-13);
@@ -505,7 +505,7 @@ mod tests {
         apply_merge(&log_e_seq, &rejected, &config, &mut state, log_threshold, 1);
 
         // Rejected test replaced with 1.0: mean of [2, 1, 3] = 2.0
-        let expected_merged = 2.0;
+        let expected_merged = 2.0_f64;
         assert!((state.log_merged_e_value - expected_merged.ln()).abs() < 1e-13);
     }
 }

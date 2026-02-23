@@ -7,6 +7,7 @@
 //!
 //! Reference: Ramdas & Wang (2025), Hypothesis testing with e-values, Ch. 4.
 
+pub mod adjusted;
 pub mod bh;
 pub mod bonferroni;
 pub mod holm;
