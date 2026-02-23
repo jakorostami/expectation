@@ -7,8 +7,9 @@ __pycache__/
 *.whl
 
 .claude/
+ROADMAP.md
 CLAUDE.md
-hypotevalues.pdf
+*.pdf
 .DS_Store
 *.so
 

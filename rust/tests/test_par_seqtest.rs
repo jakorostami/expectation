@@ -12,6 +12,7 @@ fn test_par_seqtest_creation() {
         CombinerType::AllIn,
         crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
+        None,
     )
     .unwrap();
 
@@ -31,6 +32,7 @@ fn test_par_seqtest_step() {
         CombinerType::AllIn,
         crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
+        None,
     )
     .unwrap();
 
@@ -50,6 +52,7 @@ fn test_par_seqtest_batch() {
         CombinerType::AllIn,
         crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
+        None,
     )
     .unwrap();
 
@@ -70,6 +73,7 @@ fn test_null_values_mismatch() {
         CombinerType::AllIn,
         crate::par_seqtest::AlternativeDirection::TwoSided,
         m,
+        None,
     );
     assert!(result.is_err());
 }
