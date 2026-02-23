@@ -326,3 +326,54 @@ class UStatisticMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
+class LambdaProductMerger(EValueMerger):
+    """
+    Lambda-product merging: F(e) = prod_{k=1}^K (1 - lambda + lambda * e_k).
+
+    Interpolates between no betting (lambda -> 0, F -> 1) and full product
+    (lambda = 1, F = prod e_k). Computed in log-space for stability.
+
+    Gambling system: constant s_k = lambda for all k.
+
+    References
+    ----------
+    Vovk & Wang (2024) Section 4 p.10; Ramdas & Wang (2025) Definition 8.5.
+    """
+
+    def __init__(self, lambda_param: float = 0.5):
+        if not (0 < lambda_param <= 1):
+            raise ValueError(
+                f"lambda_param must be in (0, 1], got {lambda_param}"
+            )
+        self.lambda_param = lambda_param
+
+    def merge(self, e_values: NDArray) -> MergingResult:
+        e_values = np.asarray(e_values, dtype=np.float64)
+        if len(e_values) == 0:
+            raise ValueError("e_values must be non-empty")
+        is_valid = self._validate(e_values)
+
+        # Compute in log-space: sum log(1 - lambda + lambda * e_k)
+        terms = (1.0 - self.lambda_param) + self.lambda_param * e_values
+        # Handle any non-positive terms
+        if np.any(terms <= 0):
+            log_merged = -np.inf
+            merged = 0.0
+        else:
+            log_merged = float(np.sum(np.log(terms)))
+            merged = float(np.exp(log_merged))
+
+        return MergingResult(
+            merged_e_value=merged,
+            log_merged_e_value=log_merged,
+            K=len(e_values),
+            merging_function=MergingFunction.LAMBDA_PRODUCT,
+            is_valid=is_valid,
+        )
+
+    def gambling_system(self, past_e_values: List[float], k: int) -> float:
+        return self.lambda_param
+
+    def reset(self) -> None:
+        pass
