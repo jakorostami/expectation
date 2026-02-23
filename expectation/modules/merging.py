@@ -206,3 +206,123 @@ class ArithmeticMeanMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
+class UStatisticMerger(EValueMerger):
+    """
+    U-statistic merging of order n: F(e) = U_n(e_1, ..., e_K).
+
+    U_n = (1 / C(K, n)) * sum_{|A|=n} prod_{k in A} e_k
+
+    Computed via elementary symmetric polynomials (ESP) in O(K*n) time.
+    Special cases: U_0 = 1, U_1 = arithmetic mean, U_K = product.
+
+    References
+    ----------
+    Vovk & Wang (2024) Section 4 Eq. (13); Ramdas & Wang (2025) Definition 8.9.
+    """
+
+    def __init__(self, n: int, K: int):
+        if n < 0:
+            raise ValueError(f"n must be >= 0, got {n}")
+        if K < 1:
+            raise ValueError(f"K must be >= 1, got {K}")
+        if n > K:
+            raise ValueError(f"n must be <= K, got n={n}, K={K}")
+        self.n = n
+        self.K = K
+
+    def merge(self, e_values: NDArray) -> MergingResult:
+        e_values = np.asarray(e_values, dtype=np.float64)
+        if len(e_values) == 0:
+            raise ValueError("e_values must be non-empty")
+        if self.n > len(e_values):
+            raise ValueError(
+                f"n={self.n} exceeds number of e-values K={len(e_values)}"
+            )
+        is_valid = self._validate(e_values)
+        merged = self._compute_u_statistic(e_values, self.n)
+        log_merged = float(np.log(merged)) if merged > 0 else -np.inf
+        return MergingResult(
+            merged_e_value=merged,
+            log_merged_e_value=log_merged,
+            K=len(e_values),
+            merging_function=MergingFunction.U_STATISTIC,
+            is_valid=is_valid,
+        )
+
+    @staticmethod
+    def _compute_u_statistic(e_values: NDArray, n: int) -> float:
+        """
+        Compute U_n via elementary symmetric polynomials.
+
+        Recurrence: p_j(e_1,...,e_k) = p_j(e_1,...,e_{k-1}) + e_k * p_{j-1}(...)
+        Result: U_n = p_n / C(K, n)
+
+        The inner update ``p[1:n+1] += e * p[0:n]`` produces the same result
+        as the scalar backward traversal because ``e * p[0:n]`` allocates a
+        temporary that snapshots all old values before ``+=`` writes any.
+        Both ensure each p[j] receives e * old_p[j-1].
+
+        Time O(K*n), space O(n).
+        """
+        K = len(e_values)
+        if n == 0:
+            return 1.0
+        if n == K:
+            return float(np.prod(e_values))
+
+        p = np.zeros(n + 1)
+        p[0] = 1.0
+
+        for e in e_values:
+            p[1:n + 1] += e * p[0:n]
+
+        return float(p[n] / _comb(K, n))
+
+    def gambling_system(self, past_e_values: List[float], k: int) -> float:
+        # Derived from the ESP representation. After observing k values,
+        # the running merged value is S_k = U_n(e_0,...,e_{k-1}, 1^{K-k}).
+        # The martingale decomposition gives:
+        #   S_{k+1} = S_k * (1 + s_{k+1} * (e_k - 1))
+        # where s_{k+1} = B / (A + B) with:
+        #   q[j] = ESP_j(e_0, ..., e_{k-1})   (ESP from past values)
+        #   m = K - k - 1                      (remaining ones after e_k)
+        #   A = sum_i C(m, i) * q[n-i]
+        #   B = sum_i C(m, i) * q[n-1-i]
+        # This is purely F_k-measurable (uses only past values).
+        # Reference: V&W (2024) Eq.(13), derived from ESP recurrence.
+
+        n = self.n
+
+        # Compute ESP q[0..n] from past values (vectorized inner loop)
+        q = np.zeros(n + 1)
+        q[0] = 1.0
+        for e in past_e_values[:k]:
+            q[1:n + 1] += e * q[0:n]
+
+        m = self.K - k - 1  # remaining ones after the next e-value
+
+        # Build binomial coefficient vector once: C(m, 0), C(m, 1), ...
+        # exact=False returns float64 — exact for integer inputs up to 2^53
+        len_a = min(n, m) + 1
+        i_a = np.arange(len_a)
+        coeffs_a = _sp_comb(m, i_a)
+
+        # A = sum_i C(m, i) * q[n - i]  (dot product)
+        A = float(np.dot(coeffs_a, q[n - i_a]))
+
+        # B = sum_i C(m, i) * q[n - 1 - i]  (dot product, requires n >= 1)
+        B = 0.0
+        if n >= 1:
+            len_b = min(n - 1, m) + 1
+            # coeffs_b is a prefix of coeffs_a
+            i_b = np.arange(len_b)
+            B = float(np.dot(coeffs_a[:len_b], q[n - 1 - i_b]))
+
+        denom = A + B
+        if denom <= 0:
+            return 0.0
+        return float(np.clip(B / denom, 0.0, 1.0))
+
+    def reset(self) -> None:
+        pass
