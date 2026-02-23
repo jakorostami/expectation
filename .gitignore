@@ -8,8 +8,7 @@ __pycache__/
 
 .claude/
 CLAUDE.md
-hypotevalues.pdf
-merging.pdf
+*.pdf
 .DS_Store
 *.so
 
