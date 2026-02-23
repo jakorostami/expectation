@@ -98,11 +98,11 @@ stops = engine.stopping_times()     # when each test rejected
   title = {expectation: Sequential testing with e-values and e-processes},
   year = {2024},
   url = {https://github.com/jakorostami/expectation},
-  version = {0.5.0}
+  version = {0.5.1}
 }
 ```
 
 ### APA
 ```
-Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.5.0) [Computer software]. https://github.com/jakorostami/expectation
+Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.5.1) [Computer software]. https://github.com/jakorostami/expectation
 ```
