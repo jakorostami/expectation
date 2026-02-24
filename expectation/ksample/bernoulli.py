@@ -132,6 +132,7 @@ class BernoulliRIPrCalculator:
         # Initialize log-weights to log-prior
         self.log_weights: NDArray = log_prior.copy()
 
+
     def compute_log_e_value(
         self,
         block_successes: dict[int, int],
@@ -169,6 +170,46 @@ class BernoulliRIPrCalculator:
                 f"Unknown alternative type: {self.config.alternative_type}"
             )
 
+    def _compute_unrestricted(
+        self,
+        block_successes: dict[int, int],
+        block_sizes: dict[int, int],
+    ) -> tuple[float, dict[int, float], float]:
+        """Unrestricted alternative (Proposition 2, closed-form).
+
+        Per group g, the posterior mean under Beta(gamma, gamma) prior is:
+            theta_g_hat = (U_g + gamma) / (N_g + 2*gamma)
+
+        The RIPr null parameter is:
+            theta_0_hat = sum_g (n_g / n) * theta_g_hat
+
+        Per-step log e-value (Eq. 3.4 generalized to k groups):
+            log(S_j) = sum_g [ s_g * log(theta_g_hat / theta_0_hat)
+                              + (n_g - s_g) * log((1 - theta_g_hat) / (1 - theta_0_hat)) ]
+        """
+        # Compute posterior means BEFORE updating state (F_{j-1}-measurable)
+        theta_estimates: dict[int, float] = {}
+        for g in range(self.k):
+            U_g = self.cumulative_successes[g]
+            N_g = self.cumulative_counts[g]
+            theta_estimates[g] = (U_g + self.gamma) / (N_g + 2.0 * self.gamma)
+
+        # RIPr mixture parameter: weighted average of per-group estimates
+        total_block_size = sum(block_sizes.values())
+        if total_block_size == 0:
+            return 0.0, theta_estimates, 0.5
+
+        theta_null = sum(
+            (block_sizes[g] / total_block_size) * theta_estimates[g]
+            for g in range(self.k)
+        )
+
+        # Compute per-step log e-value
+        log_e = self._bernoulli_log_e_value(
+            block_successes, block_sizes, theta_estimates, theta_null
+        )
+
+        return log_e, theta_estimates, theta_null
 
     def _compute_effect_size(
         self,
@@ -226,7 +267,31 @@ class BernoulliRIPrCalculator:
         self.log_weights -= logsumexp(self.log_weights)
 
         return log_e, theta_estimates, theta_null
-    
+
+    def _compute_simple(
+        self,
+        block_successes: dict[int, int],
+        block_sizes: dict[int, int],
+    ) -> tuple[float, dict[int, float], float]:
+        """Simple alternative (Eq. 3.2): fixed theta vector, no posterior updating."""
+        theta_estimates = dict(self.config.simple_theta)
+
+        total_block_size = sum(block_sizes.values())
+        if total_block_size == 0:
+            return 0.0, theta_estimates, 0.5
+
+        theta_null = sum(
+            (block_sizes[g] / total_block_size) * theta_estimates[g]
+            for g in range(self.k)
+        )
+
+        log_e = self._bernoulli_log_e_value(
+            block_successes, block_sizes, theta_estimates, theta_null
+        )
+
+        return log_e, theta_estimates, theta_null
+
+
     @staticmethod
     def _bernoulli_log_e_value(
         block_successes: dict[int, int],
@@ -279,72 +344,7 @@ class BernoulliRIPrCalculator:
                 log_e += failures * (np.log1p(-theta_g) - np.log1p(-theta_null))
 
         return float(log_e)
-    
-    def _compute_simple(
-        self,
-        block_successes: dict[int, int],
-        block_sizes: dict[int, int],
-    ) -> tuple[float, dict[int, float], float]:
-        """Simple alternative (Eq. 3.2): fixed theta vector, no posterior updating."""
-        theta_estimates = dict(self.config.simple_theta)
 
-        total_block_size = sum(block_sizes.values())
-        if total_block_size == 0:
-            return 0.0, theta_estimates, 0.5
-
-        theta_null = sum(
-            (block_sizes[g] / total_block_size) * theta_estimates[g]
-            for g in range(self.k)
-        )
-
-        log_e = self._bernoulli_log_e_value(
-            block_successes, block_sizes, theta_estimates, theta_null
-        )
-
-        return log_e, theta_estimates, theta_null
-    
-
-    def _compute_unrestricted(
-        self,
-        block_successes: dict[int, int],
-        block_sizes: dict[int, int],
-    ) -> tuple[float, dict[int, float], float]:
-        """Unrestricted alternative (Proposition 2, closed-form).
-
-        Per group g, the posterior mean under Beta(gamma, gamma) prior is:
-            theta_g_hat = (U_g + gamma) / (N_g + 2*gamma)
-
-        The RIPr null parameter is:
-            theta_0_hat = sum_g (n_g / n) * theta_g_hat
-
-        Per-step log e-value (Eq. 3.4 generalized to k groups):
-            log(S_j) = sum_g [ s_g * log(theta_g_hat / theta_0_hat)
-                              + (n_g - s_g) * log((1 - theta_g_hat) / (1 - theta_0_hat)) ]
-        """
-        # Compute posterior means BEFORE updating state (F_{j-1}-measurable)
-        theta_estimates: dict[int, float] = {}
-        for g in range(self.k):
-            U_g = self.cumulative_successes[g]
-            N_g = self.cumulative_counts[g]
-            theta_estimates[g] = (U_g + self.gamma) / (N_g + 2.0 * self.gamma)
-
-        # RIPr mixture parameter: weighted average of per-group estimates
-        total_block_size = sum(block_sizes.values())
-        if total_block_size == 0:
-            return 0.0, theta_estimates, 0.5
-
-        theta_null = sum(
-            (block_sizes[g] / total_block_size) * theta_estimates[g]
-            for g in range(self.k)
-        )
-
-        # Compute per-step log e-value
-        log_e = self._bernoulli_log_e_value(
-            block_successes, block_sizes, theta_estimates, theta_null
-        )
-
-        return log_e, theta_estimates, theta_null
-    
     def update_state(
         self,
         block_successes: dict[int, int],
