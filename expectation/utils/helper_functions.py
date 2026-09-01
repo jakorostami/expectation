@@ -1392,3 +1392,201 @@ def plot_combined_dashboard(
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+# Single source of truth for the warm charcoal + gold palette, so notebooks
+# import it instead of re-declaring an `_EV` dict and `_evidence_layout`.
+EVIDENCE_PALETTE: Dict[str, str] = {
+    'gold': _EVIDENCE_COLORS['e_value'],
+    'teal': _EVIDENCE_COLORS['cumulative'],
+    'gold_bright': _EVIDENCE_COLORS['e_power'],
+    'violet': _EVIDENCE_COLORS['p_value'],
+    'blue': _EVIDENCE_COLORS['observations'],
+    'bg': _EVIDENCE_COLORS['background'],
+    'grid': _EVIDENCE_COLORS['grid'],
+    'red': _EVIDENCE_COLORS['threshold'],
+    'gold_dim': _EVIDENCE_COLORS['reference'],
+    'gold_pale': _EVIDENCE_COLORS['summary'],
+    'paper': _EVIDENCE_PAPER,
+    'title_font': _EVIDENCE_TITLE_FONT,
+    'label_font': _EVIDENCE_LABEL_FONT,
+    'body_font': _EVIDENCE_BODY_FONT,
+}
+
+
+def evidence_palette() -> Dict[str, str]:
+    return dict(EVIDENCE_PALETTE)
+
+
+def apply_evidence_layout(
+    fig: go.Figure,
+    title: str = '',
+    height: int = 700,
+    width: int = 1000,
+) -> go.Figure:
+    """Apply the evidence theme (charcoal + gold, three-font system) to a figure.
+
+    Mirrors the styling used across the e-value example notebooks: Cinzel for
+    the title, EB Garamond for axis labels and subplot titles, Cormorant
+    Garamond for body text, plus dark backgrounds and gold gridlines.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objects.Figure
+        Figure to style in place.
+    title : str
+        Main title text.
+    height, width : int
+        Figure dimensions in pixels.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The same figure, styled (returned for chaining).
+    """
+    p = EVIDENCE_PALETTE
+    fig.update_layout(
+        title={'text': title,
+               'font': {'family': p['title_font'], 'size': 22, 'color': p['gold']},
+               'x': 0.5, 'xanchor': 'center'},
+        height=height, width=width,
+        plot_bgcolor=p['bg'], paper_bgcolor=p['paper'],
+        font={'family': p['body_font'], 'color': p['gold_dim']},
+        hovermode='x unified',
+        legend={'bgcolor': 'rgba(13,10,7,0.85)',
+                'font': {'family': p['label_font'], 'color': p['gold_dim'], 'size': 12}},
+        hoverlabel={'bgcolor': p['paper'], 'font_size': 12,
+                    'font_family': p['label_font'], 'font_color': p['gold_pale'],
+                    'bordercolor': 'rgba(201,168,76,.25)'},
+    )
+    fig.update_annotations(font={'family': p['label_font'], 'color': p['gold_dim'], 'size': 14})
+    fig.update_xaxes(showgrid=True, gridcolor=p['grid'], zeroline=False,
+                     showline=True, linecolor=p['grid'], mirror=True,
+                     title_font={'family': p['label_font'], 'size': 13},
+                     tickfont={'family': p['label_font'], 'size': 11})
+    fig.update_yaxes(showgrid=True, gridcolor=p['grid'], zeroline=False,
+                     showline=True, linecolor=p['grid'], mirror=True,
+                     title_font={'family': p['label_font'], 'size': 13},
+                     tickfont={'family': p['label_font'], 'size': 11})
+    return fig
+
+
+def plot_ksample_dashboard(
+    history_df: pd.DataFrame,
+    alpha: float = 0.05,
+    group_labels: Optional[List[str]] = None,
+    true_values: Optional[Union[Dict[int, float], List[float]]] = None,
+    group_colors: Optional[List[str]] = None,
+    stop_block: Optional[int] = None,
+    title: str = 'k-Sample Sequential E-Test',
+    height: int = 700,
+    width: int = 1000,
+) -> go.Figure:
+    """Build the standard 4-panel evidence-themed dashboard for a k-sample test.
+
+    Reproduces the layout used in the Bernoulli k-sample example notebook:
+    (a) e-process with the 1/alpha rejection line, (b) per-step e-values with
+    the E[S_j]=1 reference, (c) per-group posterior theta estimates with
+    optional true-value references, and (d) the anytime-valid p-value.
+
+    The number of groups ``k`` is inferred from the ``theta_{g}`` columns of
+    ``history_df`` (as produced by ``KSampleSequentialTest.get_history_df()``).
+
+    Parameters
+    ----------
+    history_df : pd.DataFrame
+        History with columns ``step``, ``e_process_value``, ``e_value``,
+        ``p_value`` and ``theta_0 .. theta_{k-1}``.
+    alpha : float
+        Significance level; the rejection boundary is drawn at ``1/alpha``.
+    group_labels : list of str, optional
+        Legend labels per group. Defaults to ``["Group 0", ...]``.
+    true_values : dict or list, optional
+        True per-group rates, drawn as dotted reference lines in panel (c).
+    group_colors : list of str, optional
+        Line colors per group. Defaults to an evidence-theme color cycle.
+    stop_block : int, optional
+        If given, a vertical marker is drawn at this block in panel (a).
+    title : str
+        Main figure title.
+    height, width : int
+        Figure dimensions in pixels.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The styled dashboard figure.
+    """
+    p = EVIDENCE_PALETTE
+    k = sum(1 for c in history_df.columns if c.startswith('theta_')
+            and c.split('theta_')[1].isdigit())
+    if k == 0:
+        raise ValueError("history_df has no 'theta_{g}' columns; is this a k-sample history?")
+
+    if group_labels is None:
+        group_labels = [f'Group {g}' for g in range(k)]
+    if group_colors is None:
+        cycle = [p['blue'], p['gold_bright'], p['teal'], p['violet'], p['gold'], p['gold_pale']]
+        group_colors = [cycle[g % len(cycle)] for g in range(k)]
+    if isinstance(true_values, list):
+        true_values = {g: true_values[g] for g in range(len(true_values))}
+
+    x0, x1 = history_df['step'].min(), history_df['step'].max()
+
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=['E-process evolution', 'Sequential e-values',
+                        'Posterior theta estimates', 'Anytime-valid p-value'],
+        vertical_spacing=0.14, horizontal_spacing=0.1)
+
+    # (a) E-process
+    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['e_process_value'],
+        mode='lines', line={'color': p['teal'], 'width': 2.5}, name='E-process',
+        hovertemplate='<b>Block %{x}</b><br>E-process: %{y:.2f}<extra></extra>'),
+        row=1, col=1)
+    fig.add_trace(go.Scatter(x=[x0, x1], y=[1 / alpha, 1 / alpha],
+        mode='lines', line={'color': p['red'], 'width': 1.5, 'dash': 'dash'},
+        name=f'1/\u03b1 = {1/alpha:.0f}'), row=1, col=1)
+    if stop_block is not None:
+        fig.add_vline(x=stop_block, line_color=p['teal'],
+                      line_dash='dot', opacity=0.6, row=1, col=1)
+    fig.update_yaxes(type='log', title_text='E-process', row=1, col=1)
+
+    # (b) Per-step e-values
+    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['e_value'],
+        mode='lines', line={'color': p['gold'], 'width': 1.5}, name='S\u2c7c',
+        opacity=0.8,
+        hovertemplate='<b>Block %{x}</b><br>S\u2c7c: %{y:.4f}<extra></extra>'),
+        row=1, col=2)
+    fig.add_trace(go.Scatter(x=[x0, x1], y=[1.0, 1.0],
+        mode='lines', line={'color': p['gold_dim'], 'width': 1, 'dash': 'dot'},
+        name='E[S\u2c7c]=1 under H\u2080', showlegend=False), row=1, col=2)
+    fig.update_yaxes(title_text='Per-step e-value', row=1, col=2)
+
+    # (c) Posterior thetas
+    for g in range(k):
+        fig.add_trace(go.Scatter(x=history_df['step'], y=history_df[f'theta_{g}'],
+            mode='lines', line={'color': group_colors[g], 'width': 2},
+            name=group_labels[g],
+            hovertemplate=f'<b>Block %{{x}}</b><br>{group_labels[g]}: %{{y:.4f}}<extra></extra>'),
+            row=2, col=1)
+        if true_values is not None and g in true_values:
+            fig.add_trace(go.Scatter(x=[x0, x1], y=[true_values[g]] * 2,
+                mode='lines', line={'color': group_colors[g], 'width': 1, 'dash': 'dot'},
+                showlegend=False), row=2, col=1)
+    fig.update_yaxes(title_text='Posterior mean', row=2, col=1)
+
+    # (d) P-value
+    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['p_value'],
+        mode='lines', line={'color': p['violet'], 'width': 2}, name='p-value',
+        hovertemplate='<b>Block %{x}</b><br>p: %{y:.2e}<extra></extra>'),
+        row=2, col=2)
+    fig.add_trace(go.Scatter(x=[x0, x1], y=[alpha, alpha],
+        mode='lines', line={'color': p['red'], 'width': 1.5, 'dash': 'dash'},
+        name=f'\u03b1 = {alpha}', showlegend=False), row=2, col=2)
+    fig.update_yaxes(type='log', title_text='p-value', row=2, col=2)
+
+    fig.update_xaxes(title_text='Block', row=2, col=1)
+    fig.update_xaxes(title_text='Block', row=2, col=2)
+
+    apply_evidence_layout(fig, title, height=height, width=width)
+    return fig
