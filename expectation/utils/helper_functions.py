@@ -16,6 +16,32 @@ import plotly.express as px
 
 pio.templates.default = "plotly_white"
 
+# ── Evidence theme ──────────────────────────────────────────────────────
+# Warm charcoal + gold palette from the e-values educational companion.
+# Mirrors the CSS custom properties in ~/e-values/index.html exactly.
+_EVIDENCE_COLORS = {
+    'e_value': '#d4b455',        # --gold        (primary accent)
+    'cumulative': '#5ab09e',     # --teal        (confidence / cumulative)
+    'e_power': '#f0d464',        # --gold-bright (highlights)
+    'p_value': '#9a7aba',        # --violet
+    'observations': '#6a9ac4',   # --blue
+    'background': '#060504',     # --bg          (near-black warm charcoal)
+    'grid': 'rgba(201,168,76,.1)',
+    'threshold': '#b84430',      # --red
+    'reference': '#a89460',      # --gold-dim    (secondary text)
+    'summary': '#ddd0a8',        # --gold-pale
+}
+# Three-font system matching ~/e-values/index.html:
+#   Cinzel             — titles, headings (classical display serif)
+#   EB Garamond        — prose, axis labels, subplot titles
+#   Cormorant Garamond — body, narration, global default
+_EVIDENCE_TITLE_FONT = "Cinzel, serif"
+_EVIDENCE_LABEL_FONT = "EB Garamond, serif"
+_EVIDENCE_BODY_FONT = "Cormorant Garamond, serif"
+_EVIDENCE_FONT = _EVIDENCE_BODY_FONT  # backward-compatible alias
+_EVIDENCE_PAPER = '#0d0a07'      # --bg-warm
+
+
 def plot_sequential_test_plotly(
     history_df: pd.DataFrame, 
     alpha: float = 0.05, 
@@ -43,7 +69,7 @@ def plot_sequential_test_plotly(
     alpha : float
         Significance level (default 0.05)
     theme : str
-        Visual theme ('apple', 'dark', 'light')
+        Visual theme ('evidence', 'apple', 'dark', 'light')
     log_scale : bool
         Whether to use log scale for e-values
     title : str
@@ -63,7 +89,15 @@ def plot_sequential_test_plotly(
         Interactive Plotly figure
     """
 
-    if theme == "apple":
+    if theme == "evidence":
+        colors = dict(_EVIDENCE_COLORS)
+        font_family = _EVIDENCE_BODY_FONT
+        title_font_family = _EVIDENCE_TITLE_FONT
+        label_font_family = _EVIDENCE_LABEL_FONT
+        plot_bgcolor = colors['background']
+        paper_bgcolor = _EVIDENCE_PAPER
+
+    elif theme == "apple":
         colors = {
             'e_value': '#007AFF',       # iOS blue
             'cumulative': '#34C759',    # iOS green
@@ -76,9 +110,11 @@ def plot_sequential_test_plotly(
             'reference': '#8E8E93'      # iOS gray
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         plot_bgcolor = colors['background']
         paper_bgcolor = '#FFFFFF'
-        
+
     elif theme == "dark":
         colors = {
             'e_value': '#0A84FF',       # iOS blue (dark mode)
@@ -92,9 +128,11 @@ def plot_sequential_test_plotly(
             'reference': '#98989D'      # iOS gray (dark mode)
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         plot_bgcolor = colors['background']
         paper_bgcolor = '#000000'
-        
+
     else:  # light
         colors = {
             'e_value': '#1E88E5',
@@ -108,6 +146,8 @@ def plot_sequential_test_plotly(
             'reference': '#6C757D'
         }
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         plot_bgcolor = colors['background']
         paper_bgcolor = '#FFFFFF'
     
@@ -137,9 +177,9 @@ def plot_sequential_test_plotly(
         title={
             'text': "",
             'font': {
-                'family': font_family,
+                'family': title_font_family,
                 'size': 24,
-                'color': '#000000' if theme != 'dark' else '#FFFFFF'
+                'color': '#d4b455' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'
             },
             'y': 0.98,
             'x': 0.5,
@@ -152,9 +192,9 @@ def plot_sequential_test_plotly(
         paper_bgcolor=paper_bgcolor,
         font={
             'family': font_family,
-            'color': '#000000' if theme != 'dark' else '#FFFFFF'
+            'color': '#a89460' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'
         },
-        hovermode='closest',  # Changed from 'x unified' to 'closest' for better tooltips
+        hovermode='closest',
         showlegend=True,
         legend={
             'orientation': 'h',
@@ -162,8 +202,8 @@ def plot_sequential_test_plotly(
             'y': 1.02,
             'xanchor': 'right',
             'x': 1,
-            'bgcolor': 'rgba(255, 255, 255, 0.8)' if theme != 'dark' else 'rgba(40, 40, 45, 0.85)',
-            'font': {'color': '#000000' if theme != 'dark' else '#FFFFFF'}
+            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(40, 40, 45, 0.85)' if theme == 'dark' else 'rgba(255, 255, 255, 0.8)',
+            'font': {'color': '#a89460' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'}
         }
     )
     
@@ -370,14 +410,32 @@ def plot_sequential_test_plotly(
         current_row += 1
     fig.update_yaxes(title_text='Value', row=current_row, col=1)
     
-    fig.update_layout(
-        hoverlabel={
-            'bgcolor': 'white',
-            'font_size': 12,
-            'font_family': font_family
-        }
-    )
-    
+    # Apply per-role fonts: subplot titles (annotations) and axis labels
+    fig.update_annotations(font={'family': label_font_family})
+    fig.update_xaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+    fig.update_yaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+
+    if theme == 'evidence':
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': '#0d0a07',
+                'font_size': 12,
+                'font_family': label_font_family,
+                'font_color': '#ddd0a8',
+                'bordercolor': 'rgba(201,168,76,.25)',
+            }
+        )
+    else:
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': 'white',
+                'font_size': 12,
+                'font_family': font_family
+            }
+        )
+
     return fig
 
 
@@ -403,7 +461,7 @@ def plot_sequential_comparison_plotly(
     alpha : float
         Significance level (default 0.05)
     theme : str
-        Visual theme ('apple', 'dark', 'light')
+        Visual theme ('evidence', 'apple', 'dark', 'light')
     log_scale : bool
         Whether to use log scale for e-values
     title : str
@@ -419,7 +477,26 @@ def plot_sequential_comparison_plotly(
         Interactive Plotly figure comparing tests
     """
 
-    if theme == "apple":
+    if theme == "evidence":
+        colors = [
+            '#d4b455',  # --gold
+            '#5ab09e',  # --teal
+            '#f0d464',  # --gold-bright
+            '#9a7aba',  # --violet
+            '#6a9ac4',  # --blue
+            '#ddd0a8',  # --gold-pale
+            '#4a8a7a',  # --teal-dim
+        ]
+        background_color = _EVIDENCE_COLORS['background']
+        grid_color = 'rgba(201,168,76,.1)'
+        threshold_color = '#b84430'
+        font_family = _EVIDENCE_BODY_FONT
+        title_font_family = _EVIDENCE_TITLE_FONT
+        label_font_family = _EVIDENCE_LABEL_FONT
+        text_color = '#a89460'
+        paper_bgcolor = _EVIDENCE_PAPER
+
+    elif theme == "apple":
         colors = [
             '#007AFF',  # iOS blue
             '#34C759',  # iOS green
@@ -433,9 +510,11 @@ def plot_sequential_comparison_plotly(
         grid_color = '#E5E5EA'
         threshold_color = '#FF3B30'
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = '#000000'
         paper_bgcolor = '#FFFFFF'
-        
+
     elif theme == "dark":
         colors = [
             '#0A84FF',  # iOS blue (dark mode)
@@ -450,15 +529,19 @@ def plot_sequential_comparison_plotly(
         grid_color = '#38383A'
         threshold_color = '#FF453A'
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = '#FFFFFF'
         paper_bgcolor = '#000000'
-        
+
     else:  # light
         colors = px.colors.qualitative.Plotly
         background_color = '#FFFFFF'
         grid_color = '#E9ECEF'
         threshold_color = '#DC3545'
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = '#000000'
         paper_bgcolor = '#FFFFFF'
     
@@ -488,7 +571,7 @@ def plot_sequential_comparison_plotly(
         title={
             'text': title,
             'font': {
-                'family': font_family,
+                'family': title_font_family,
                 'size': 24,
                 'color': text_color
             },
@@ -513,12 +596,12 @@ def plot_sequential_comparison_plotly(
             'y': 1.02,
             'xanchor': 'right',
             'x': 1,
-            'bgcolor': 'rgba(255, 255, 255, 0.7)' if theme != 'dark' else 'rgba(0, 0, 0, 0.7)',
+            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.7)' if theme == 'dark' else 'rgba(255, 255, 255, 0.7)',
         }
     )
-    
+
     current_row = 1
-    
+
     # 1. Individual E-values
     for i, (df, label) in enumerate(zip(history_dfs, labels)):
         fig.add_trace(
@@ -741,16 +824,34 @@ def plot_sequential_comparison_plotly(
         fig.update_yaxes(title_text='p-value (%)', row=(3 if has_epower else 3), col=1)
     fig.update_yaxes(title_text='Value', row=current_row, col=1)
     
-    fig.update_layout(
-        hoverlabel={
-            'bgcolor': 'white' if theme != 'dark' else '#3A3A3C',
-            'font_size': 12,
-            'font_family': font_family,
-            'font_color': 'black' if theme != 'dark' else 'white',
-            'bordercolor': colors['grid']
-        }
-    )
-    
+    # Apply per-role fonts: subplot titles (annotations) and axis labels
+    fig.update_annotations(font={'family': label_font_family})
+    fig.update_xaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+    fig.update_yaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+
+    if theme == 'evidence':
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': '#0d0a07',
+                'font_size': 12,
+                'font_family': label_font_family,
+                'font_color': '#ddd0a8',
+                'bordercolor': 'rgba(201,168,76,.25)',
+            }
+        )
+    else:
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': 'white' if theme != 'dark' else '#3A3A3C',
+                'font_size': 12,
+                'font_family': font_family,
+                'font_color': 'black' if theme != 'dark' else 'white',
+                'bordercolor': colors['grid']
+            }
+        )
+
     return fig
 
 
@@ -773,7 +874,7 @@ def plot_combined_dashboard(
     alpha : float
         Significance level
     theme : str
-        Visual theme ('apple', 'dark', 'light')
+        Visual theme ('evidence', 'apple', 'dark', 'light')
     title : str
         Dashboard title
     height : int
@@ -789,7 +890,16 @@ def plot_combined_dashboard(
         Interactive Plotly dashboard
     """
 
-    if theme == "apple":
+    if theme == "evidence":
+        colors = dict(_EVIDENCE_COLORS)
+        font_family = _EVIDENCE_BODY_FONT
+        title_font_family = _EVIDENCE_TITLE_FONT
+        label_font_family = _EVIDENCE_LABEL_FONT
+        text_color = '#a89460'
+        paper_bgcolor = _EVIDENCE_PAPER
+        plot_bgcolor = colors['background']
+
+    elif theme == "apple":
         colors = {
             'e_value': '#007AFF',       # iOS blue
             'cumulative': '#34C759',    # iOS green
@@ -803,10 +913,12 @@ def plot_combined_dashboard(
             'summary': '#5856D6'        # iOS indigo
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = "#000000"
         paper_bgcolor = '#FFFFFF'
         plot_bgcolor = colors['background']
-        
+
     elif theme == "dark":
         colors = {
             'e_value': '#0A84FF',       # iOS blue (dark mode)
@@ -821,10 +933,12 @@ def plot_combined_dashboard(
             'summary': '#5E5CE6'        # iOS indigo (dark mode)
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = "#FFFFFF"
         paper_bgcolor = '#000000'
         plot_bgcolor = colors['background']
-        
+
     else:  # light
         colors = {
             'e_value': '#1E88E5',
@@ -839,6 +953,8 @@ def plot_combined_dashboard(
             'summary': '#6610F2'
         }
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
+        title_font_family = font_family
+        label_font_family = font_family
         text_color = "#000000"
         paper_bgcolor = '#FFFFFF'
         plot_bgcolor = colors['background']
@@ -870,7 +986,7 @@ def plot_combined_dashboard(
         title={
             'text': title,
             'font': {
-                'family': font_family,
+                'family': title_font_family,
                 'size': 28,
                 'color': text_color
             },
@@ -895,10 +1011,13 @@ def plot_combined_dashboard(
             'y': 1.02,
             'xanchor': 'right',
             'x': 1,
-            'bgcolor': 'rgba(255, 255, 255, 0.7)' if theme != 'dark' else 'rgba(0, 0, 0, 0.7)',
+            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.7)' if theme == 'dark' else 'rgba(255, 255, 255, 0.7)',
         }
     )
-    
+
+    _dark_theme = theme in ('dark', 'evidence')
+    _annot_bg = 'rgba(13, 10, 7, 0.9)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.8)' if theme == 'dark' else 'rgba(255, 255, 255, 0.8)'
+
     # ---- Row 1: Header with summary statistics ----
     if not history_df.empty:
         latest_e_value = history_df['e_value'].iloc[-1]
@@ -950,7 +1069,7 @@ def plot_combined_dashboard(
             bordercolor=colors['grid'],
             borderwidth=1,
             borderpad=10,
-            bgcolor="rgba(255, 255, 255, 0.8)" if theme != "dark" else "rgba(0, 0, 0, 0.8)",
+            bgcolor=_annot_bg,
             opacity=0.95,
             align="left",
             font=dict(family=font_family, size=14),
@@ -985,7 +1104,7 @@ def plot_combined_dashboard(
             bordercolor=colors['grid'],
             borderwidth=1,
             borderpad=10,
-            bgcolor="rgba(255, 255, 255, 0.8)" if theme != "dark" else "rgba(0, 0, 0, 0.8)",
+            bgcolor=_annot_bg,
             opacity=0.95,
             align="right",
             xanchor="right",
@@ -1162,7 +1281,7 @@ def plot_combined_dashboard(
             showarrow=False,
             font={'size': 14, 'color': text_color},
             align="center",
-            bgcolor="rgba(255,255,255,0.7)" if theme != "dark" else "rgba(40,40,45,0.7)",
+            bgcolor='rgba(13,10,7,0.8)' if theme == 'evidence' else 'rgba(40,40,45,0.7)' if theme == 'dark' else 'rgba(255,255,255,0.7)',
             bordercolor=colors['grid'],
             borderwidth=1,
             borderpad=4
@@ -1187,9 +1306,9 @@ def plot_combined_dashboard(
                     'borderwidth': 1,
                     'bordercolor': colors['reference'],
                     'steps': [
-                        {'range': [0, 50], 'color': 'rgba(255, 0, 0, 0.1)'},
-                        {'range': [50, 80], 'color': 'rgba(255, 165, 0, 0.1)'},
-                        {'range': [80, 100], 'color': 'rgba(0, 128, 0, 0.1)'}
+                        {'range': [0, 50], 'color': 'rgba(184,68,48,0.15)' if theme == 'evidence' else 'rgba(255, 0, 0, 0.1)'},
+                        {'range': [50, 80], 'color': 'rgba(212,180,85,0.12)' if theme == 'evidence' else 'rgba(255, 165, 0, 0.1)'},
+                        {'range': [80, 100], 'color': 'rgba(90,176,158,0.15)' if theme == 'evidence' else 'rgba(0, 128, 0, 0.1)'}
                     ],
                     'threshold': {
                         'line': {'color': colors['threshold'], 'width': 4},
@@ -1241,14 +1360,32 @@ def plot_combined_dashboard(
         fig.update_yaxes(type='log', row=2, col=1)  # E-values
         fig.update_yaxes(type='log', row=3, col=1)  # Cumulative E-values
 
-    fig.update_layout(
-        hoverlabel={
-            'bgcolor': 'white' if theme != 'dark' else '#2C2C2E',
-            'font_size': 12,
-            'font_family': font_family
-        }
-    )
-    
+    # Apply per-role fonts: subplot titles (annotations) and axis labels
+    fig.update_annotations(font={'family': label_font_family})
+    fig.update_xaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+    fig.update_yaxes(title_font={'family': label_font_family},
+                     tickfont={'family': label_font_family})
+
+    if theme == 'evidence':
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': '#0d0a07',
+                'font_size': 12,
+                'font_family': label_font_family,
+                'font_color': '#ddd0a8',
+                'bordercolor': 'rgba(201,168,76,.25)',
+            }
+        )
+    else:
+        fig.update_layout(
+            hoverlabel={
+                'bgcolor': 'white' if theme != 'dark' else '#2C2C2E',
+                'font_size': 12,
+                'font_family': font_family
+            }
+        )
+
     return fig
 
 
