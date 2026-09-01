@@ -40,6 +40,9 @@ pub struct MergeState {
     pub sum_e_minus_1_sq: f64,
 }
 
+// `MergeState` is always constructed via `new()`; a Default impl would be dead
+// code, so the lint is allowed rather than satisfied with an unused trait impl.
+#[allow(clippy::new_without_default)]
 impl MergeState {
     /// Create a new zeroed merge state.
     pub fn new() -> Self {

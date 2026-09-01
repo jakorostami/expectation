@@ -17,6 +17,12 @@
 //! - Waudby-Smith & Ramdas (2024). Estimating means of bounded random
 //!   variables by betting.
 
+// The nine step specializations below (3 combiners x 3 variance branches) each
+// take the Structure-of-Arrays state as explicit parallel slices so the whole
+// body monomorphizes and inlines into the rayon hot loop. Grouping them into a
+// struct would defeat that, so `too_many_arguments` is intentional here.
+#![allow(clippy::too_many_arguments)]
+
 use rayon::prelude::*;
 
 use crate::error::{EngineError, Result};

@@ -17,6 +17,13 @@
 //!   W.J. Cody, "Rational Chebyshev approximations for the error function,"
 //!   Math. Comp. 23(107), 631-637, 1969.
 
+// The rational-approximation coefficients below are transcribed verbatim from
+// the Sun fdlibm / Cody (1969) reference tables at their full published
+// precision. clippy::excessive_precision would suggest truncating digits that
+// an f64 cannot represent, but keeping the reference form makes every constant
+// auditable against the source and is intentional for this numerical kernel.
+#![allow(clippy::excessive_precision)]
+
 use std::f64::consts::FRAC_1_SQRT_2;
 
 // ── Coefficients from Sun fdlibm s_erf.c ──────────────────────────────

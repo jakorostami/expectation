@@ -65,6 +65,7 @@ fn test_bh_more_liberal_than_bonferroni() {
     let alpha = 0.05;
     let mut log_e_values = vec![0.0; m];
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..10 {
         log_e_values[i] = 6.0 + i as f64 * 0.5;
     }

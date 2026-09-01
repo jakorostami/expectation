@@ -12,6 +12,16 @@
 //! Uses enum dispatch at the Python boundary (one match per call, not per test)
 //! while the inner `ParallelSequentialTest<M>` remains fully monomorphized.
 
+// This module is a thin PyO3 FFI boundary. The #[pymethods] proc-macro (PyO3
+// 0.22) expands every fallible method into code that converts EngineError ->
+// PyErr; clippy attributes that macro-generated code to the method signature
+// spans as `useless_conversion` / `redundant_closure`. They are false positives
+// on generated code, not hand-written conversions. `too_many_arguments` is also
+// allowed here: the constructor exposes 22 configuration parameters by design.
+#![allow(clippy::useless_conversion)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::too_many_arguments)]
+
 use numpy::PyArray1;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;

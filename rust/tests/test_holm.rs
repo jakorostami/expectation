@@ -39,6 +39,7 @@ fn test_holm_tighter_than_bonferroni() {
     let alpha = 0.05;
     let mut log_e_values = vec![0.0; m];
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..5 {
         log_e_values[i] = 8.0 + i as f64;
     }

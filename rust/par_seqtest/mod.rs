@@ -100,6 +100,10 @@ impl<M: MixtureSuperMartingale> ParallelSequentialTest<M> {
     /// # Errors
     /// Returns `DimensionMismatch` if null_values length != n_tests.
     /// Returns `InvalidParameter` if alpha not in (0, 1).
+    // The engine constructor mirrors the configuration surface exposed at the
+    // Python boundary; grouping these into a struct would add an indirection
+    // without changing the call sites, so the argument count is intentional.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         n_tests: usize,
         null_values: Vec<f64>,

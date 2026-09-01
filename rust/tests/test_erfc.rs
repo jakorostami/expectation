@@ -155,8 +155,12 @@ fn test_ndtr_special_cases() {
 
 #[test]
 fn test_log_ndtr_at_zero() {
-    // ln(0.5) ≈ -0.6931471805599453
-    assert!((log_ndtr(0.0) - (-0.6931471805599453)).abs() < 1e-14);
+    // ln(0.5) ≈ -0.6931471805599453. The literal is the expected value of the
+    // function under test, not a use of the LN_2 constant.
+    #[allow(clippy::approx_constant)]
+    {
+        assert!((log_ndtr(0.0) - (-0.6931471805599453)).abs() < 1e-14);
+    }
 }
 
 #[test]

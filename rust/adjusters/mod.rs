@@ -12,10 +12,10 @@
 //! "Carefree multiple testing with e-processes" (arXiv:2501.19360v2), Eq. (5):
 //!
 //! - **Lookback** (Dawid et al. 2011a):
-//!     `A_1(E) = (E - 1 - ln E) / (ln E)^2`
+//!   `A_1(E) = (E - 1 - ln E) / (ln E)^2`
 //!
 //! - **Sqrt**:
-//!     `A_2(E) = sqrt(E) - 1`
+//!   `A_2(E) = sqrt(E) - 1`
 //!
 //! Both satisfy `∫₁^∞ A(E) / E² dE = 1`, so `(A(sup_{s≤t} E_s))` is a
 //! valid e-process when applied to running maxima of e-values.
@@ -30,7 +30,9 @@
 //! has a removable 0/0 singularity at x = 0. We use a 4-term Taylor
 //! expansion for |x| < 1e-4:
 //!
-//!     `A_1 ≈ 1/2 + x/6 + x²/24 + x³/120`
+//! ```text
+//! A_1 ≈ 1/2 + x/6 + x²/24 + x³/120
+//! ```
 //!
 //! For the direct branch, `expm1(x)` avoids catastrophic cancellation.
 //!
@@ -281,13 +283,16 @@ mod tests {
 
     #[test]
     fn test_taylor_direct_continuity() {
-        // At the boundary x ≈ 1e-4, both branches should agree closely.
-        let x_below = 0.99e-4;
-        let x_above = 1.01e-4;
+        // Exercise the actual branch dispatch at the switch x0 = 1e-4.
+        // The evaluation points differ by only 2e-14, so this measures branch
+        // agreement rather than the nonzero slope f'(0) = 1/6.
+        let x0 = 1e-4_f64;
+        let x_below = x0 * 0.999_999_999_9;
+        let x_above = x0 * 1.000_000_000_1;
         let result_below = lookback_from_log(x_below);
         let result_above = lookback_from_log(x_above);
         assert!(
-            (result_below - result_above).abs() < 1e-13,
+            (result_below - result_above).abs() < 1e-11,
             "Discontinuity at Taylor threshold: {} vs {}",
             result_below,
             result_above
@@ -334,11 +339,12 @@ mod tests {
 
     #[test]
     fn test_lookback_calibration_integral() {
-        // ∫₁^∞ A(E)/E² dE should equal 1.
-        // Numerical quadrature with substitution u = ln(E):
-        // ∫₀^∞ A(exp(u)) * exp(-u) du = ∫₀^∞ (expm1(u) - u)/u² * exp(-u) du
+        // Tavyrikov, Goeman & de Heide (2025), Eq. 5:
+        // ∫₁^∞ A_1(E)/E² dE = ∫₀^∞ A_1(exp(u))*exp(-u) du = 1.
+        // The transformed integrand decays as 1/u², so its truncated tail is
+        // 1/u_max up to an exponentially small correction.
         let n = 1_000_000;
-        let u_max = 30.0; // exp(-30) ≈ 1e-13, negligible tail
+        let u_max = 30.0_f64;
         let du = u_max / n as f64;
         let mut integral = 0.0;
         for i in 1..n {
@@ -346,8 +352,9 @@ mod tests {
             let a = lookback_from_log(u);
             integral += a * (-u).exp() * du;
         }
+        integral += 1.0 / u_max;
         assert!(
-            (integral - 1.0).abs() < 0.01,
+            (integral - 1.0).abs() < 1e-4,
             "Lookback calibration integral = {}, expected 1.0",
             integral
         );
