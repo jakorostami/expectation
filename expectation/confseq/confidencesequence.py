@@ -53,7 +53,7 @@ class ConfidenceSequence(BaseModel):
     estimand: EstimandType = Field(default=EstimandType.MEAN)
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def update(self, new_data: NDArray[np.float_]) -> ConfidenceSequenceResult:
+    def update(self, new_data: NDArray[np.float64]) -> ConfidenceSequenceResult:
         data = np.asarray(new_data)
         n_new = len(data)
 
@@ -120,7 +120,7 @@ class EmpiricalBernsteinConfidenceSequence(ConfidenceSequence):
 
     config: EmpiricalBernsteinConfig
 
-    def update(self, new_data: NDArray[np.float_]) -> ConfidenceSequenceResult:
+    def update(self, new_data: NDArray[np.float64]) -> ConfidenceSequenceResult:
         data = np.asarray(new_data)
 
         if (data < self.config.lower_bound).any() or (data > self.config.upper_bound).any():
