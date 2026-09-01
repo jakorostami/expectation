@@ -15,7 +15,8 @@ CLAUDE.md
 
 # Rust artifacts
 /target/
-Cargo.lock
+# Cargo.lock IS committed: the cdylib is a shipped binary artifact, and maturin
+# bundles the lockfile into the sdist so end-user source builds match CI.
 
 # IDE
 .vscode/

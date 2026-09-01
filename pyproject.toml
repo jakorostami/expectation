@@ -1,6 +1,8 @@
 # pyproject.toml
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
+# maturin >= 1.7 is required for PEP 639 metadata (SPDX `license` expression
+# and `license-files`); older versions reject the string-form license field.
+requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -11,15 +13,34 @@ authors = [
 ]
 description = "Python library for confidence sequences, sequential testing, e-processes, e-values, and game-theoretic probability."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
+# GPL-3.0 with Additional Terms (AI/ML training restriction) — see LICENSE.
+license = "GPL-3.0-only AND LicenseRef-AI-Training-Prohibited"
+license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
+# Lower bounds are verified by the min-deps CI leg (ubuntu-latest, Python 3.12).
+# Do not lower a bound without confirming that leg passes.
 dependencies = [
-    # List your dependencies here
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "pydantic>=2.5",
+    "pandas>=2.2",
+    "plotly>=5.18",
+    "matplotlib>=3.8",
+]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "maturin>=1.9",
+    "black>=24.0",
+    "isort>=5.13",
+    "mypy>=1.8",
 ]
 
 [project.urls]
@@ -32,4 +53,29 @@ python-source = "."
 # Preserves existing Python package structure while adding Rust extension
 module-name = "expectation._rust"
 # Build settings
+# extension-module is enabled HERE (not in Cargo.toml default features) so that
+# `cargo test` / `cargo clippy` can link against libpython outside maturin.
 features = ["pyo3/extension-module"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.12"
+files = ["expectation"]
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "performance: timing-sensitive tests excluded from PR CI (run in scheduled benchmarks)",
+]
