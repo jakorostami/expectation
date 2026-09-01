@@ -74,6 +74,7 @@ class VarianceMode(str, Enum):
     KNOWN_HETEROGENEOUS: Per-test known variances (array input).
     EMPIRICAL: Online Welford estimation after min_samples observations.
     """
+
     KNOWN_HOMOGENEOUS = "known_homogeneous"
     KNOWN_HETEROGENEOUS = "known_heterogeneous"
     EMPIRICAL = "empirical"
@@ -152,6 +153,7 @@ class ParallelTestConfig(BaseModel):
     merge_include_rejected : bool
         Include rejected tests in merge. Default True.
     """
+
     n_tests: int = Field(gt=0, description="Number of simultaneous hypothesis tests")
     alpha: float = Field(gt=0, lt=1, default=0.05, description="Significance level")
     martingale_type: MartingaleType = Field(default=MartingaleType.TWO_SIDED_NORMAL)
@@ -161,7 +163,9 @@ class ParallelTestConfig(BaseModel):
     min_samples: int = Field(ge=1, default=30, description="Min samples for empirical variance")
     alternative: AlternativeDirection = Field(default=AlternativeDirection.TWO_SIDED)
     combiner: CombinerStrategy = Field(default=CombinerStrategy.ALL_IN)
-    conservative_lambda: float = Field(gt=0, lt=1, default=0.5, description="Lambda for conservative combiner")
+    conservative_lambda: float = Field(
+        gt=0, lt=1, default=0.5, description="Lambda for conservative combiner"
+    )
     gamma: float = Field(gt=0, le=1, default=0.5, description="Cap for adaptive combiner lambda")
     epsilon: float = Field(gt=0, default=1e-6, description="Regularization for adaptive combiner")
 
@@ -171,13 +175,27 @@ class ParallelTestConfig(BaseModel):
         description="Merging function for intersection hypothesis (None = disabled)",
     )
     merge_u_order: int = Field(default=1, ge=0, description="U-statistic order n")
-    merge_lambda_param: float = Field(default=0.5, gt=0, le=1, description="Lambda for lambda-product merge")
-    merge_segments: Optional[List[int]] = Field(default=None, description="Segment boundaries for segment-product merge")
-    merge_combiner: CombinerStrategy = Field(default=CombinerStrategy.ALL_IN, description="Temporal combiner for merged stream")
-    merge_conservative_lambda: float = Field(default=0.5, gt=0, lt=1, description="Lambda for conservative merge combiner")
-    merge_gamma: float = Field(default=0.5, gt=0, le=1, description="Cap for adaptive merge combiner")
-    merge_epsilon: float = Field(default=1e-6, gt=0, description="Regularization for adaptive merge combiner")
-    merge_include_rejected: bool = Field(default=True, description="Include rejected tests in merge")
+    merge_lambda_param: float = Field(
+        default=0.5, gt=0, le=1, description="Lambda for lambda-product merge"
+    )
+    merge_segments: Optional[List[int]] = Field(
+        default=None, description="Segment boundaries for segment-product merge"
+    )
+    merge_combiner: CombinerStrategy = Field(
+        default=CombinerStrategy.ALL_IN, description="Temporal combiner for merged stream"
+    )
+    merge_conservative_lambda: float = Field(
+        default=0.5, gt=0, lt=1, description="Lambda for conservative merge combiner"
+    )
+    merge_gamma: float = Field(
+        default=0.5, gt=0, le=1, description="Cap for adaptive merge combiner"
+    )
+    merge_epsilon: float = Field(
+        default=1e-6, gt=0, description="Regularization for adaptive merge combiner"
+    )
+    merge_include_rejected: bool = Field(
+        default=True, description="Include rejected tests in merge"
+    )
 
     model_config = ConfigDict(frozen=True)
 
@@ -185,9 +203,7 @@ class ParallelTestConfig(BaseModel):
     def _validate_merge(self) -> "ParallelTestConfig":
         if self.global_merge == MergingMethod.SEGMENT_PRODUCT:
             if self.merge_segments is None:
-                raise ValueError(
-                    "merge_segments is required when global_merge is SEGMENT_PRODUCT"
-                )
+                raise ValueError("merge_segments is required when global_merge is SEGMENT_PRODUCT")
         if self.global_merge == MergingMethod.U_STATISTIC:
             if self.merge_u_order > self.n_tests:
                 raise ValueError(
@@ -228,6 +244,7 @@ class StepResult(BaseModel):
     merged_lambda : float, optional
         Current merged temporal betting fraction.
     """
+
     time_step: int = Field(ge=1)
     n_rejected: int = Field(ge=0)
     n_tests: int = Field(gt=0)
@@ -265,13 +282,13 @@ class MultipleTestingResult(BaseModel):
     ----------
     Ramdas & Wang (2025), Ch. 4: Multiple testing with e-values.
     """
+
     rejected: NDArray[np.bool_]
     n_rejected: int = Field(ge=0)
     method: MultipleTestingMethod
     alpha: float = Field(gt=0, lt=1)
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-
 
 
 class ParallelSequentialTest:
@@ -606,7 +623,8 @@ class ParallelSequentialTest:
         """
         used_alpha = alpha if alpha is not None else self._config.alpha
         raw = self._inner.adjusted_e_bonferroni(
-            alpha=alpha, adjuster=adjuster,
+            alpha=alpha,
+            adjuster=adjuster,
         )
         return MultipleTestingResult(
             rejected=np.asarray(raw["rejected"]),

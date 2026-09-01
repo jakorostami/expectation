@@ -20,6 +20,7 @@ References:
 import json
 import os
 import sys
+
 import numpy as np
 
 # Ensure the project root is importable
@@ -74,15 +75,17 @@ def generate_one_sided_greater():
         log_e_cum = mixture.log_superMG(s, v)
         log_e_sequential = log_e_cum - prev_log_e_cum
 
-        steps.append({
-            "t": t,
-            "x": to_float(x),
-            "data_sum": to_float(data_sum),
-            "s": to_float(s),
-            "v": to_float(v),
-            "log_e_cum": to_float(log_e_cum),
-            "log_e_sequential": to_float(log_e_sequential),
-        })
+        steps.append(
+            {
+                "t": t,
+                "x": to_float(x),
+                "data_sum": to_float(data_sum),
+                "s": to_float(s),
+                "v": to_float(v),
+                "log_e_cum": to_float(log_e_cum),
+                "log_e_sequential": to_float(log_e_sequential),
+            }
+        )
         prev_log_e_cum = log_e_cum
 
     fixture = {
@@ -142,20 +145,22 @@ def generate_conservative_combiner():
         log_increment = np.log(increment) if increment > 0 else float("-inf")
         log_e_process += log_increment
 
-        steps.append({
-            "t": t,
-            "x": to_float(x),
-            "data_sum": to_float(data_sum),
-            "s": to_float(s),
-            "v": to_float(v),
-            "log_e_cum": to_float(log_e_cum),
-            "log_e_sequential": to_float(log_e_sequential),
-            "e_value": to_float(e_value),
-            "lambda_t": to_float(lambda_t),
-            "increment": to_float(increment),
-            "log_increment": to_float(log_increment),
-            "log_e_process": to_float(log_e_process),
-        })
+        steps.append(
+            {
+                "t": t,
+                "x": to_float(x),
+                "data_sum": to_float(data_sum),
+                "s": to_float(s),
+                "v": to_float(v),
+                "log_e_cum": to_float(log_e_cum),
+                "log_e_sequential": to_float(log_e_sequential),
+                "e_value": to_float(e_value),
+                "lambda_t": to_float(lambda_t),
+                "increment": to_float(increment),
+                "log_increment": to_float(log_increment),
+                "log_e_process": to_float(log_e_process),
+            }
+        )
         prev_log_e_cum = log_e_cum
 
     fixture = {
@@ -229,22 +234,24 @@ def generate_adaptive_combiner():
         log_increment = np.log(increment) if increment > 0 else float("-inf")
         log_e_process += log_increment
 
-        steps.append({
-            "t": t,
-            "x": to_float(x),
-            "data_sum": to_float(data_sum),
-            "s": to_float(s),
-            "v": to_float(v),
-            "log_e_cum": to_float(log_e_cum),
-            "log_e_sequential": to_float(log_e_sequential),
-            "e_value": to_float(e_value),
-            "lambda_t": to_float(lambda_t),
-            "S1_before": to_float(S1),
-            "S2_before": to_float(S2),
-            "increment": to_float(increment),
-            "log_increment": to_float(log_increment),
-            "log_e_process": to_float(log_e_process),
-        })
+        steps.append(
+            {
+                "t": t,
+                "x": to_float(x),
+                "data_sum": to_float(data_sum),
+                "s": to_float(s),
+                "v": to_float(v),
+                "log_e_cum": to_float(log_e_cum),
+                "log_e_sequential": to_float(log_e_sequential),
+                "e_value": to_float(e_value),
+                "lambda_t": to_float(lambda_t),
+                "S1_before": to_float(S1),
+                "S2_before": to_float(S2),
+                "increment": to_float(increment),
+                "log_increment": to_float(log_increment),
+                "log_e_process": to_float(log_e_process),
+            }
+        )
 
         # Update S1, S2 AFTER using them (so they reflect E_1..E_t for next step)
         deviation = e_value - 1.0
@@ -305,15 +312,17 @@ def generate_one_sided_less():
         log_e_cum = mixture.log_superMG(s, v)
         log_e_sequential = log_e_cum - prev_log_e_cum
 
-        steps.append({
-            "t": t,
-            "x": to_float(x),
-            "data_sum": to_float(data_sum),
-            "s": to_float(s),
-            "v": to_float(v),
-            "log_e_cum": to_float(log_e_cum),
-            "log_e_sequential": to_float(log_e_sequential),
-        })
+        steps.append(
+            {
+                "t": t,
+                "x": to_float(x),
+                "data_sum": to_float(data_sum),
+                "s": to_float(s),
+                "v": to_float(v),
+                "log_e_cum": to_float(log_e_cum),
+                "log_e_sequential": to_float(log_e_sequential),
+            }
+        )
         prev_log_e_cum = log_e_cum
 
     fixture = {

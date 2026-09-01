@@ -72,7 +72,6 @@ class BernoulliRIPrCalculator:
         if config.alternative_type == KSampleAlternativeType.EFFECT_SIZE:
             self._init_grid()
 
-
     def _init_grid(self) -> None:
         """Initialize discretized prior grid for effect-size restricted test.
 
@@ -132,7 +131,6 @@ class BernoulliRIPrCalculator:
         # Initialize log-weights to log-prior
         self.log_weights: NDArray = log_prior.copy()
 
-
     def compute_log_e_value(
         self,
         block_successes: dict[int, int],
@@ -166,9 +164,7 @@ class BernoulliRIPrCalculator:
         elif self.config.alternative_type == KSampleAlternativeType.SIMPLE:
             return self._compute_simple(block_successes, block_sizes)
         else:
-            raise ValueError(
-                f"Unknown alternative type: {self.config.alternative_type}"
-            )
+            raise ValueError(f"Unknown alternative type: {self.config.alternative_type}")
 
     def _compute_unrestricted(
         self,
@@ -200,8 +196,7 @@ class BernoulliRIPrCalculator:
             return 0.0, theta_estimates, 0.5
 
         theta_null = sum(
-            (block_sizes[g] / total_block_size) * theta_estimates[g]
-            for g in range(self.k)
+            (block_sizes[g] / total_block_size) * theta_estimates[g] for g in range(self.k)
         )
 
         # Compute per-step log e-value
@@ -281,8 +276,7 @@ class BernoulliRIPrCalculator:
             return 0.0, theta_estimates, 0.5
 
         theta_null = sum(
-            (block_sizes[g] / total_block_size) * theta_estimates[g]
-            for g in range(self.k)
+            (block_sizes[g] / total_block_size) * theta_estimates[g] for g in range(self.k)
         )
 
         log_e = self._bernoulli_log_e_value(
@@ -290,7 +284,6 @@ class BernoulliRIPrCalculator:
         )
 
         return log_e, theta_estimates, theta_null
-
 
     @staticmethod
     def _bernoulli_log_e_value(

@@ -1,9 +1,14 @@
-import pytest
 import numpy as np
-from expectation.seqtest.sequential_e_testing import (
-    SequentialTesting, TestType, AlternativeType, BoundaryConfig, BoundaryType
-)
+import pytest
+
 from expectation.modules.hypothesistesting import EValueConfig
+from expectation.seqtest.sequential_e_testing import (
+    AlternativeType,
+    BoundaryConfig,
+    BoundaryType,
+    SequentialTesting,
+    TestType,
+)
 
 
 class TestEProcessUpdaterIntegration:
@@ -15,7 +20,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         data = np.random.normal(0.5, 1.0, 50)
@@ -38,7 +43,7 @@ class TestEProcessUpdaterIntegration:
         strategies = [
             ("all_in", None, None),
             ("conservative", None, 0.3),
-            ("empirically_adaptive", 0.5, None)
+            ("empirically_adaptive", 0.5, None),
         ]
 
         results = {}
@@ -54,7 +59,7 @@ class TestEProcessUpdaterIntegration:
                 config=config,
                 betting_strategy=strategy_name,
                 gamma=gamma,
-                conservative_lambda=conservative_lambda
+                conservative_lambda=conservative_lambda,
             )
 
             data = np.random.normal(0.5, 1.0, 50)
@@ -64,11 +69,17 @@ class TestEProcessUpdaterIntegration:
             results[strategy_name] = current_val
 
             if strategy_name != "all_in":  # all_in doesn't track lambdas
-                assert hasattr(test.e_process, 'lambdas'), f"Lambdas should be tracked for {strategy_name}"
+                assert hasattr(
+                    test.e_process, "lambdas"
+                ), f"Lambdas should be tracked for {strategy_name}"
                 if test.e_process.lambdas:
-                    assert all(0 <= l <= 1 for l in test.e_process.lambdas), "Lambdas should be in [0,1]"
+                    assert all(
+                        0 <= l <= 1 for l in test.e_process.lambdas
+                    ), "Lambdas should be in [0,1]"
 
-        assert len(set(results.values())) > 1, "Different strategies should produce different e-values"
+        assert (
+            len(set(results.values())) > 1
+        ), "Different strategies should produce different e-values"
 
     def test_summary_statistics(self):
         np.random.seed(42)
@@ -78,7 +89,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         for _ in range(5):
@@ -114,7 +125,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         data = np.random.normal(0.0, 1.0, 50)
@@ -122,16 +133,22 @@ class TestEProcessUpdaterIntegration:
 
         p_process = test.e_process_updater.compute_p_process(test.e_process)
 
-        assert len(p_process) == len(test.e_process.process_values), "P-process should match process_values length"
-        assert len(p_process) == len(test.e_process.values) + 1, "P-process should be len(values) + 1"
+        assert len(p_process) == len(
+            test.e_process.process_values
+        ), "P-process should match process_values length"
+        assert (
+            len(p_process) == len(test.e_process.values) + 1
+        ), "P-process should be len(values) + 1"
         assert all(0 <= p <= 1 for p in p_process), "All p-values should be in [0,1]"
 
         assert p_process[0] == 1.0, "First p-value should be 1.0"
 
         for t in range(len(p_process)):
-            values_up_to_t = test.e_process.process_values[:t+1]
-            expected_p = min(1.0, min(1.0/v for v in values_up_to_t if v > 0))
-            assert abs(p_process[t] - expected_p) < 1e-10, f"P-value at t={t} should be minimum inverse"
+            values_up_to_t = test.e_process.process_values[: t + 1]
+            expected_p = min(1.0, min(1.0 / v for v in values_up_to_t if v > 0))
+            assert (
+                abs(p_process[t] - expected_p) < 1e-10
+            ), f"P-value at t={t} should be minimum inverse"
 
     def test_stopping_time_detection(self):
         np.random.seed(42)
@@ -141,7 +158,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         stopping_detected = False
@@ -153,7 +170,9 @@ class TestEProcessUpdaterIntegration:
             if stopping_time is not None:
                 stopping_detected = True
                 assert stopping_time > 0, "Stopping time should be positive"
-                assert stopping_time <= len(test.e_process.values), "Stopping time should be <= current time"
+                assert stopping_time <= len(
+                    test.e_process.values
+                ), "Stopping time should be <= current time"
                 break
 
         assert stopping_detected, "Should detect stopping time with strong signal"
@@ -166,7 +185,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         for _ in range(10):
@@ -176,7 +195,9 @@ class TestEProcessUpdaterIntegration:
         summary = test.get_summary()
 
         assert len(test.e_process.values) == 10
-        assert summary["asymptotic_growth_rate"] is None, "Should return None when len(values) < min_samples"
+        assert (
+            summary["asymptotic_growth_rate"] is None
+        ), "Should return None when len(values) < min_samples"
 
         for _ in range(10):
             batch = np.random.normal(0.0, 1.0, 20)
@@ -193,11 +214,14 @@ class TestEProcessUpdaterIntegration:
         assert isinstance(summary["empirical_e_power"], (int, float))
         assert not np.isnan(summary["empirical_e_power"])
 
-    @pytest.mark.parametrize("test_type,null_value,data_generator", [
-        (TestType.MEAN, 0.0, lambda: np.random.normal(0.5, 1.0, 50)),
-        (TestType.PROPORTION, 0.5, lambda: np.random.binomial(1, 0.6, 50)),
-        (TestType.VARIANCE, 1.0, lambda: np.random.normal(0, np.sqrt(2), 50)),
-    ])
+    @pytest.mark.parametrize(
+        "test_type,null_value,data_generator",
+        [
+            (TestType.MEAN, 0.0, lambda: np.random.normal(0.5, 1.0, 50)),
+            (TestType.PROPORTION, 0.5, lambda: np.random.binomial(1, 0.6, 50)),
+            (TestType.VARIANCE, 1.0, lambda: np.random.normal(0, np.sqrt(2), 50)),
+        ],
+    )
     def test_different_test_types(self, test_type, null_value, data_generator):
         np.random.seed(42)
 
@@ -209,14 +233,14 @@ class TestEProcessUpdaterIntegration:
                 null_value=null_value,
                 quantile=0.5,
                 alternative=AlternativeType.TWO_SIDED,
-                config=config
+                config=config,
             )
         else:
             test = SequentialTesting(
                 test_type=test_type,
                 null_value=null_value,
                 alternative=AlternativeType.TWO_SIDED,
-                config=config
+                config=config,
             )
 
         data = data_generator()
@@ -237,7 +261,7 @@ class TestEProcessUpdaterIntegration:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         for i in range(10):
@@ -246,7 +270,9 @@ class TestEProcessUpdaterIntegration:
 
             if result.reject_null:
                 assert len(test.rejection_times) > 0, "Rejection times should be tracked"
-                assert test.rejection_times[0] == test.e_process_updater.get_stopping_time(test.e_process)
+                assert test.rejection_times[0] == test.e_process_updater.get_stopping_time(
+                    test.e_process
+                )
                 break
         else:
             pytest.fail("Should have rejected null with strong signal")
@@ -256,8 +282,10 @@ class TestEProcessUpdaterIntegration:
 
         boundary_configs = [
             BoundaryConfig(boundary_type=BoundaryType.NORMAL, v_opt=1.0, alpha_opt=0.05),
-            BoundaryConfig(boundary_type=BoundaryType.GAMMA_EXPONENTIAL, v_opt=1.0, alpha_opt=0.05, c=1.0),
-            BoundaryConfig(boundary_type=BoundaryType.POLY_STITCHING, v_min=0.5, s=1.4, eta=2.0)
+            BoundaryConfig(
+                boundary_type=BoundaryType.GAMMA_EXPONENTIAL, v_opt=1.0, alpha_opt=0.05, c=1.0
+            ),
+            BoundaryConfig(boundary_type=BoundaryType.POLY_STITCHING, v_min=0.5, s=1.4, eta=2.0),
         ]
 
         for boundary_config in boundary_configs:
@@ -267,13 +295,15 @@ class TestEProcessUpdaterIntegration:
                 null_value=0.0,
                 alternative=AlternativeType.TWO_SIDED,
                 config=config,
-                boundary_config=boundary_config
+                boundary_config=boundary_config,
             )
 
             data = np.random.normal(0.5, 1.0, 50)
             result = test.update(data)
 
-            assert result.confidence_bounds is not None, f"Should have bounds for {boundary_config.boundary_type}"
+            assert (
+                result.confidence_bounds is not None
+            ), f"Should have bounds for {boundary_config.boundary_type}"
 
             assert test.e_process_updater.get_current_value(test.e_process) > 0
 

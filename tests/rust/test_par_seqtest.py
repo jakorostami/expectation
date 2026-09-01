@@ -260,12 +260,14 @@ class TestFDRControl:
                 any_rejection_count += 1
 
         fdr_estimate = any_rejection_count / n_sims
-        print(f"\n  e-BH FDR estimate (all null): {fdr_estimate:.3f} "
-              f"({any_rejection_count}/{n_sims} sims with any rejection)")
-
-        assert fdr_estimate <= alpha + 0.03, (
-            f"FDR estimate {fdr_estimate:.3f} exceeds alpha+tolerance={alpha + 0.03}"
+        print(
+            f"\n  e-BH FDR estimate (all null): {fdr_estimate:.3f} "
+            f"({any_rejection_count}/{n_sims} sims with any rejection)"
         )
+
+        assert (
+            fdr_estimate <= alpha + 0.03
+        ), f"FDR estimate {fdr_estimate:.3f} exceeds alpha+tolerance={alpha + 0.03}"
 
 
 class TestFWERControl:
@@ -302,12 +304,14 @@ class TestFWERControl:
                 any_rejection_count += 1
 
         fwer_estimate = any_rejection_count / n_sims
-        print(f"\n  e-Bonferroni FWER estimate (all null): {fwer_estimate:.3f} "
-              f"({any_rejection_count}/{n_sims} sims with any rejection)")
-
-        assert fwer_estimate <= alpha + 0.03, (
-            f"FWER estimate {fwer_estimate:.3f} exceeds alpha+tolerance={alpha + 0.03}"
+        print(
+            f"\n  e-Bonferroni FWER estimate (all null): {fwer_estimate:.3f} "
+            f"({any_rejection_count}/{n_sims} sims with any rejection)"
         )
+
+        assert (
+            fwer_estimate <= alpha + 0.03
+        ), f"FWER estimate {fwer_estimate:.3f} exceeds alpha+tolerance={alpha + 0.03}"
 
 
 class TestSignalDetection:
@@ -334,9 +338,9 @@ class TestSignalDetection:
         print(f"\n  Signal tests rejected: {signal_rejected}/{n_signal}")
         print(f"  Null tests rejected: {null_rejected}/{n_tests - n_signal}")
 
-        assert signal_rejected == n_signal, (
-            f"Only {signal_rejected}/{n_signal} signal tests rejected"
-        )
+        assert (
+            signal_rejected == n_signal
+        ), f"Only {signal_rejected}/{n_signal} signal tests rejected"
 
     def test_e_bh_detects_signal_subset(self):
         """e-BH should detect a subset of signals with FDR control.
@@ -399,9 +403,9 @@ class TestEdgeCases:
         pst.step(np.ones(n))
         log_e = pst.log_e_processes()
 
-        assert not np.allclose(log_e, log_e[0]), (
-            "Different null values should produce different e-values"
-        )
+        assert not np.allclose(
+            log_e, log_e[0]
+        ), "Different null values should produce different e-values"
 
     def test_heterogeneous_variance(self):
         """Per-test variance should work."""
@@ -585,10 +589,14 @@ class TestAlternativeDirection:
         obs = np.random.randn(1) + 0.5  # positive shift
 
         pst_greater = _make_pst_full(
-            n_tests=1, alternative="greater", martingale_type="one_sided_normal",
+            n_tests=1,
+            alternative="greater",
+            martingale_type="one_sided_normal",
         )
         pst_less = _make_pst_full(
-            n_tests=1, alternative="less", martingale_type="one_sided_normal",
+            n_tests=1,
+            alternative="less",
+            martingale_type="one_sided_normal",
         )
 
         for _ in range(10):
@@ -599,13 +607,11 @@ class TestAlternativeDirection:
         log_e_greater = pst_greater.log_e_processes()[0]
         log_e_less = pst_less.log_e_processes()[0]
 
-        assert log_e_greater != log_e_less, (
-            "GREATER and LESS should give different e-values on asymmetric data"
-        )
+        assert (
+            log_e_greater != log_e_less
+        ), "GREATER and LESS should give different e-values on asymmetric data"
         # Positive shift favors GREATER
-        assert log_e_greater > log_e_less, (
-            "Positive signal should favor GREATER over LESS"
-        )
+        assert log_e_greater > log_e_less, "Positive signal should favor GREATER over LESS"
 
     def test_two_sided_auto_selects_martingale(self):
         """TWO_SIDED should use TwoSidedNormalMixture (default)."""
@@ -664,7 +670,9 @@ class TestConservativeCombiner:
 
         pst_all_in = _make_pst_full(n_tests=1, combiner="all_in")
         pst_conservative = _make_pst_full(
-            n_tests=1, combiner="conservative", conservative_lambda=0.5,
+            n_tests=1,
+            combiner="conservative",
+            conservative_lambda=0.5,
         )
 
         for obs in obs_seq:
@@ -737,22 +745,25 @@ class TestAdaptiveCombiner:
     def test_lambda_starts_at_zero(self):
         """First lambda should be 0 (no previous data for estimation)."""
         pst = _make_pst_full(
-            n_tests=1, combiner="empirically_adaptive",
+            n_tests=1,
+            combiner="empirically_adaptive",
         )
         pst.step(np.array([1.0]))
         # After step 1, the lambda used was 0.0 (S1=0, S2=0 before step 1)
         # But the stored lambda reflects the CURRENT lambda for the next step
         # Let's verify via the e-process: with lambda=0, increment=1.0, so log_e_process=0.0
         log_ep = pst.log_e_processes()[0]
-        assert abs(log_ep) < 1e-15, (
-            f"First step with lambda=0 should give log_e_process=0, got {log_ep}"
-        )
+        assert (
+            abs(log_ep) < 1e-15
+        ), f"First step with lambda=0 should give log_e_process=0, got {log_ep}"
 
     def test_lambda_bounded_by_gamma(self):
         """Lambda should never exceed gamma."""
         gamma = 0.3
         pst = _make_pst_full(
-            n_tests=1, combiner="empirically_adaptive", gamma=gamma,
+            n_tests=1,
+            combiner="empirically_adaptive",
+            gamma=gamma,
         )
 
         np.random.seed(77)
@@ -760,14 +771,13 @@ class TestAdaptiveCombiner:
             pst.step(np.random.randn(1) + 2.0)
 
         lam = pst.lambdas()[0]
-        assert lam <= gamma + 1e-15, (
-            f"Lambda {lam} exceeds gamma {gamma}"
-        )
+        assert lam <= gamma + 1e-15, f"Lambda {lam} exceeds gamma {gamma}"
 
     def test_adaptive_grows_under_signal(self):
         """Adaptive combiner should detect signal (e-process grows)."""
         pst = _make_pst_full(
-            n_tests=1, combiner="empirically_adaptive",
+            n_tests=1,
+            combiner="empirically_adaptive",
         )
 
         np.random.seed(88)
@@ -775,9 +785,7 @@ class TestAdaptiveCombiner:
             pst.step(np.random.randn(1) + 1.0)
 
         log_ep = pst.log_e_processes()[0]
-        assert log_ep > 0, (
-            f"Adaptive combiner should grow under signal, got log_e_process={log_ep}"
-        )
+        assert log_ep > 0, f"Adaptive combiner should grow under signal, got log_e_process={log_ep}"
 
 
 class TestSequentialEValues:
@@ -828,8 +836,7 @@ class TestSequentialEValues:
             python_log_seq = step["log_e_sequential"]
 
             assert abs(rust_log_seq - python_log_seq) < TOLERANCE, (
-                f"Step {step['t']}: Rust log_e_seq={rust_log_seq}, "
-                f"Python={python_log_seq}"
+                f"Step {step['t']}: Rust log_e_seq={rust_log_seq}, " f"Python={python_log_seq}"
             )
 
     def test_multi_test_independence(self):
@@ -861,9 +868,7 @@ class TestStoppingTimes:
             pst.step(np.full(10, 3.0))
 
         st = pst.stopping_times()
-        assert np.all(st > 0), (
-            f"All tests should have stopped under strong signal: {st}"
-        )
+        assert np.all(st > 0), f"All tests should have stopped under strong signal: {st}"
 
     def test_stopping_time_zero_under_null(self):
         """Tests under null should mostly not stop (stopping_time=0)."""
@@ -876,9 +881,7 @@ class TestStoppingTimes:
         st = pst.stopping_times()
         n_stopped = np.sum(st > 0)
         # Under null, very few should stop at alpha=0.05
-        assert n_stopped < 10, (
-            f"Too many tests stopped under null: {n_stopped}/100"
-        )
+        assert n_stopped < 10, f"Too many tests stopped under null: {n_stopped}/100"
 
     def test_stopping_time_matches_rejection_step(self):
         """Stopping time should equal the first step where rejection occurs."""
@@ -891,9 +894,7 @@ class TestStoppingTimes:
                 rejection_step = t
 
         st = pst.stopping_times()[0]
-        assert st == rejection_step, (
-            f"Stopping time {st} != first rejection step {rejection_step}"
-        )
+        assert st == rejection_step, f"Stopping time {st} != first rejection step {rejection_step}"
 
 
 class TestPValues:
@@ -928,9 +929,7 @@ class TestPValues:
             pst.step(np.full(10, 2.0))
 
         pv = pst.p_values()
-        assert np.all(pv < 0.05), (
-            f"P-values should be < 0.05 under strong signal: {pv}"
-        )
+        assert np.all(pv < 0.05), f"P-values should be < 0.05 under strong signal: {pv}"
 
     def test_p_value_formula(self):
         """p = min(1, exp(-log_e_process))."""
@@ -962,9 +961,7 @@ class TestPValues:
             final_pvals.append(pst.p_values()[0])
 
         median_pv = np.median(final_pvals)
-        assert median_pv > 0.3, (
-            f"Median p-value under null should be > 0.3, got {median_pv:.3f}"
-        )
+        assert median_pv > 0.3, f"Median p-value under null should be > 0.3, got {median_pv:.3f}"
 
 
 class TestEHolmCorrection:
@@ -990,9 +987,7 @@ class TestEHolmCorrection:
                 any_rejection += 1
 
         fwer = any_rejection / n_sims
-        assert fwer <= alpha + 0.03, (
-            f"e-Holm FWER {fwer:.3f} exceeds alpha + tolerance"
-        )
+        assert fwer <= alpha + 0.03, f"e-Holm FWER {fwer:.3f} exceeds alpha + tolerance"
 
     def test_e_holm_detects_signal(self):
         """e-Holm should detect strong signals."""
@@ -1009,9 +1004,9 @@ class TestEHolmCorrection:
 
         result = pst.e_holm(alpha=0.05)
         assert result.method == MultipleTestingMethod.E_HOLM
-        assert result.n_rejected >= n_signal - 1, (
-            f"e-Holm should detect most signals, got {result.n_rejected}"
-        )
+        assert (
+            result.n_rejected >= n_signal - 1
+        ), f"e-Holm should detect most signals, got {result.n_rejected}"
 
 
 class TestNewlyRejected:
@@ -1027,9 +1022,7 @@ class TestNewlyRejected:
             total_newly += result.n_newly_rejected
 
         # Total newly rejected should equal total rejected
-        assert total_newly == 10, (
-            f"Sum of newly rejected ({total_newly}) should equal n_tests (10)"
-        )
+        assert total_newly == 10, f"Sum of newly rejected ({total_newly}) should equal n_tests (10)"
 
     def test_newly_rejected_zero_after_all_rejected(self):
         """Once all tests are rejected, n_newly_rejected should be 0."""
@@ -1061,7 +1054,9 @@ class TestLambdasAccessor:
         """Conservative combiner lambda should match configured value."""
         lam_val = 0.3
         pst = _make_pst_full(
-            n_tests=5, combiner="conservative", conservative_lambda=lam_val,
+            n_tests=5,
+            combiner="conservative",
+            conservative_lambda=lam_val,
         )
         pst.step(np.ones(5))
 

@@ -100,7 +100,6 @@ class KSampleSequentialTest:
         self.history: list[dict] = []
 
         self._buffer: dict[int, list[int]] = {g: [] for g in range(self.k)}
-        
 
     def update(self, group_data: dict[int, NDArray]) -> KSampleStepResult:
         """Process one block of observations across all k groups.
@@ -149,12 +148,12 @@ class KSampleSequentialTest:
 
         current_value = self.e_process_updater.get_current_value(self.e_process)
         log_e_process = (
-            self.e_process.log_process_values[-1]
-            if self.e_process.log_process_values
-            else 0.0
+            self.e_process.log_process_values[-1] if self.e_process.log_process_values else 0.0
         )
 
-        max_value = self.e_process_updater.get_max_value(self.e_process) # Anytime-valid p-value (Proposition 2.4, Ramdas & Wang 2025)
+        max_value = self.e_process_updater.get_max_value(
+            self.e_process
+        )  # Anytime-valid p-value (Proposition 2.4, Ramdas & Wang 2025)
         p_value = self._calibrator(max_value)
 
         # Build cumulative stats for result
@@ -224,9 +223,7 @@ class KSampleSequentialTest:
 
         # Check if all groups have at least one buffered observation
         if all(len(self._buffer[g]) > 0 for g in range(self.k)):
-            group_data = {
-                g: np.array(self._buffer[g], dtype=np.int64) for g in range(self.k)
-            }
+            group_data = {g: np.array(self._buffer[g], dtype=np.int64) for g in range(self.k)}
             # Clear buffer
             self._buffer = {g: [] for g in range(self.k)}
             return self.update(group_data)
@@ -256,9 +253,7 @@ class KSampleSequentialTest:
             "k": self.k,
             "block_count": self.block_count,
             "alternative_type": self.config.alternative_type.value,
-            "current_e_process": self.e_process_updater.get_current_value(
-                self.e_process
-            ),
+            "current_e_process": self.e_process_updater.get_current_value(self.e_process),
             "max_e_process": self.e_process_updater.get_max_value(self.e_process),
             "is_significant": self.e_process_updater.is_significant(self.e_process),
             "stopping_time": self.e_process_updater.get_stopping_time(self.e_process),
@@ -298,14 +293,12 @@ class KSampleSequentialTest:
         for g in range(self.k):
             if g not in group_data:
                 raise ValueError(
-                    f"Group {g} missing from group_data. "
-                    f"All {self.k} groups must be present."
+                    f"Group {g} missing from group_data. " f"All {self.k} groups must be present."
                 )
             arr = np.asarray(group_data[g]).flatten()
             if len(arr) == 0:
                 raise ValueError(f"Group {g} has no observations.")
             if not np.all(np.isin(arr, [0, 1])):
                 raise ValueError(
-                    f"Group {g} contains non-binary values. "
-                    f"All observations must be 0 or 1."
+                    f"Group {g} contains non-binary values. " f"All observations must be 0 or 1."
                 )

@@ -1,9 +1,15 @@
-import pytest
 import numpy as np
-from expectation.seqtest.sequential_e_testing import (
-    SequentialTesting, TestType, AlternativeType, BoundaryType, BoundaryConfig, SequentialTestResult
-)
+import pytest
+
 from expectation.modules.hypothesistesting import EValueConfig
+from expectation.seqtest.sequential_e_testing import (
+    AlternativeType,
+    BoundaryConfig,
+    BoundaryType,
+    SequentialTesting,
+    SequentialTestResult,
+    TestType,
+)
 
 
 class TestSequentialTesting:
@@ -13,7 +19,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         assert test.test_type == TestType.MEAN
@@ -32,12 +38,14 @@ class TestSequentialTesting:
             test_type=TestType.PROPORTION,
             null_value=0.5,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         assert test.test_type == TestType.PROPORTION
         assert test.null_value == 0.5
-        assert test.boundary_config.boundary_type == BoundaryType.BETA_BINOMIAL  # Default for proportion
+        assert (
+            test.boundary_config.boundary_type == BoundaryType.BETA_BINOMIAL
+        )  # Default for proportion
 
     def test_initialization_variance_test(self):
         config = EValueConfig(significance_level=0.05)
@@ -45,12 +53,14 @@ class TestSequentialTesting:
             test_type=TestType.VARIANCE,
             null_value=1.0,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         assert test.test_type == TestType.VARIANCE
         assert test.null_value == 1.0
-        assert test.boundary_config.boundary_type == BoundaryType.GAMMA_EXPONENTIAL  # Default for variance
+        assert (
+            test.boundary_config.boundary_type == BoundaryType.GAMMA_EXPONENTIAL
+        )  # Default for variance
 
     def test_initialization_quantile_test(self):
         config = EValueConfig(significance_level=0.05)
@@ -59,44 +69,36 @@ class TestSequentialTesting:
             null_value=0.0,
             quantile=0.5,  ## median
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         assert test.test_type == TestType.QUANTILE
         assert test.quantile == 0.5
         assert test.null_value == 0.0
-        assert test.boundary_config.boundary_type == BoundaryType.DOUBLE_STITCHING  # Default for quantile
+        assert (
+            test.boundary_config.boundary_type == BoundaryType.DOUBLE_STITCHING
+        )  # Default for quantile
 
     def test_invalid_parameters(self):
         config = EValueConfig(significance_level=0.05)
 
         with pytest.raises(ValueError):
-            SequentialTesting(
-                test_type="invalid_type",
-                null_value=0.0,
-                config=config
-            )
+            SequentialTesting(test_type="invalid_type", null_value=0.0, config=config)
 
         with pytest.raises(ValueError):
             SequentialTesting(
                 test_type=TestType.MEAN,
                 null_value=0.0,
                 alternative="invalid_alternative",
-                config=config
+                config=config,
             )
 
         with pytest.raises(ValueError):
-            SequentialTesting(
-                test_type=TestType.QUANTILE,
-                null_value=0.0,
-                config=config
-            )
+            SequentialTesting(test_type=TestType.QUANTILE, null_value=0.0, config=config)
 
         with pytest.raises(ValueError):
             SequentialTesting(
-                test_type=TestType.PROPORTION,
-                null_value=1.5,  # should be in (0,1)
-                config=config
+                test_type=TestType.PROPORTION, null_value=1.5, config=config  # should be in (0,1)
             )
 
     def test_mean_test_update(self):
@@ -106,7 +108,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         data = np.random.normal(0.0, 1.0, 50)
@@ -133,7 +135,7 @@ class TestSequentialTesting:
             test_type=TestType.PROPORTION,
             null_value=0.5,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         data = np.random.binomial(1, 0.5, 100)
@@ -153,7 +155,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         batch_sizes = [10, 20, 30]
@@ -165,7 +167,9 @@ class TestSequentialTesting:
             total_samples += batch_size
 
             assert result.sample_size == total_samples
-            assert len(test.e_process.values) == len(batch_sizes[:batch_sizes.index(batch_size) + 1])
+            assert len(test.e_process.values) == len(
+                batch_sizes[: batch_sizes.index(batch_size) + 1]
+            )
 
         assert len(test.e_process.values) == len(batch_sizes)
 
@@ -174,9 +178,7 @@ class TestSequentialTesting:
         config = EValueConfig(significance_level=0.05)
 
         boundary_config = BoundaryConfig(
-            boundary_type=BoundaryType.NORMAL,
-            v_opt=1.0,
-            alpha_opt=0.05
+            boundary_type=BoundaryType.NORMAL, v_opt=1.0, alpha_opt=0.05
         )
 
         test = SequentialTesting(
@@ -184,7 +186,7 @@ class TestSequentialTesting:
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
             config=config,
-            boundary_config=boundary_config
+            boundary_config=boundary_config,
         )
 
         true_mean = 0.5
@@ -204,11 +206,7 @@ class TestSequentialTesting:
         config = EValueConfig(significance_level=0.05)
 
         boundary_config = BoundaryConfig(
-            boundary_type=BoundaryType.BETA_BINOMIAL,
-            v_opt=0.25,
-            alpha_opt=0.05,
-            g=0.5,
-            h=0.5
+            boundary_type=BoundaryType.BETA_BINOMIAL, v_opt=0.25, alpha_opt=0.05, g=0.5, h=0.5
         )
 
         test = SequentialTesting(
@@ -216,7 +214,7 @@ class TestSequentialTesting:
             null_value=0.5,
             alternative=AlternativeType.TWO_SIDED,
             config=config,
-            boundary_config=boundary_config
+            boundary_config=boundary_config,
         )
 
         true_p = 0.6
@@ -238,7 +236,7 @@ class TestSequentialTesting:
         boundary_types = [
             (BoundaryType.NORMAL, {"v_opt": 1.0, "alpha_opt": 0.05}),
             (BoundaryType.GAMMA_EXPONENTIAL, {"v_opt": 1.0, "alpha_opt": 0.05, "c": 1.0}),
-            (BoundaryType.POLY_STITCHING, {"v_min": 0.5, "s": 1.4, "eta": 2.0})
+            (BoundaryType.POLY_STITCHING, {"v_min": 0.5, "s": 1.4, "eta": 2.0}),
         ]
 
         data = np.random.normal(0.5, 1.0, 100)
@@ -252,7 +250,7 @@ class TestSequentialTesting:
                 null_value=0.0,
                 alternative=AlternativeType.TWO_SIDED,
                 config=config,
-                boundary_config=boundary_config
+                boundary_config=boundary_config,
             )
 
             result = test.update(data)
@@ -275,7 +273,7 @@ class TestSequentialTesting:
         strategies = [
             ("all_in", None, None),
             ("conservative", None, 0.3),
-            ("empirically_adaptive", 0.5, None)
+            ("empirically_adaptive", 0.5, None),
         ]
 
         results = {}
@@ -290,7 +288,7 @@ class TestSequentialTesting:
                 config=config,
                 betting_strategy=strategy_name,
                 gamma=gamma,
-                conservative_lambda=conservative_lambda
+                conservative_lambda=conservative_lambda,
             )
 
             data = np.random.normal(0.5, 1.0, 50)
@@ -299,7 +297,7 @@ class TestSequentialTesting:
             results[strategy_name] = result.e_process.cumulative_value
 
             if strategy_name != "all_in":
-                assert hasattr(test.e_process, 'lambdas')
+                assert hasattr(test.e_process, "lambdas")
                 if test.e_process.lambdas:
                     assert all(0 <= l <= 1 for l in test.e_process.lambdas)
 
@@ -315,7 +313,7 @@ class TestSequentialTesting:
             alternative=AlternativeType.TWO_SIDED,
             config=config,
             betting_strategy="conservative",
-            conservative_lambda=0.3
+            conservative_lambda=0.3,
         )
 
         for _ in range(5):
@@ -334,7 +332,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         data = np.random.normal(0.5, 1.0, 50)
@@ -348,7 +346,7 @@ class TestSequentialTesting:
         assert max_val >= current_val
         assert isinstance(is_sig, bool)
 
-        expected_p = min(1.0, 1.0/current_val) if current_val > 0 else 1.0
+        expected_p = min(1.0, 1.0 / current_val) if current_val > 0 else 1.0
         assert abs(result.p_value - expected_p) < 1e-10
 
     def test_stopping_time_detection(self):
@@ -359,7 +357,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         stopping_detected = False
@@ -385,7 +383,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         for _ in range(10):
@@ -394,7 +392,9 @@ class TestSequentialTesting:
 
             if result.reject_null:
                 assert len(test.rejection_times) > 0
-                assert test.rejection_times[0] == test.e_process_updater.get_stopping_time(test.e_process)
+                assert test.rejection_times[0] == test.e_process_updater.get_stopping_time(
+                    test.e_process
+                )
                 break
         else:
             pytest.fail("Should have rejected null with strong signal")
@@ -407,7 +407,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.GREATER,
-            config=config
+            config=config,
         )
 
         for _ in range(5):
@@ -417,10 +417,17 @@ class TestSequentialTesting:
         summary = test.get_summary()
 
         required_fields = [
-            "test_type", "null_value", "alternative",
-            "current_e_value", "max_e_value", "is_significant",
-            "stopping_time", "p_value", "sample_size",
-            "empirical_e_power", "asymptotic_growth_rate"
+            "test_type",
+            "null_value",
+            "alternative",
+            "current_e_value",
+            "max_e_value",
+            "is_significant",
+            "stopping_time",
+            "p_value",
+            "sample_size",
+            "empirical_e_power",
+            "asymptotic_growth_rate",
         ]
 
         for field in required_fields:
@@ -443,7 +450,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         batch_sizes = [10, 20, 30]
@@ -467,7 +474,7 @@ class TestSequentialTesting:
         expected_product = 1.0
         for i, raw_e in enumerate(raw_e_values):
             expected_product *= raw_e
-            assert abs(test.e_process.process_values[i+1] - expected_product) < 1e-10
+            assert abs(test.e_process.process_values[i + 1] - expected_product) < 1e-10
             assert abs(cumulative_e_values[i] - expected_product) < 1e-10
 
         assert abs(test.e_process.cumulative_value - expected_product) < 1e-10
@@ -480,7 +487,7 @@ class TestSequentialTesting:
             test_type=TestType.MEAN,
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
-            config=config
+            config=config,
         )
 
         data = np.random.normal(0.5, 1.0, 50)
@@ -500,22 +507,14 @@ class TestSequentialTesting:
 
     def test_empty_data_error(self):
         config = EValueConfig(significance_level=0.05)
-        test = SequentialTesting(
-            test_type=TestType.MEAN,
-            null_value=0.0,
-            config=config
-        )
+        test = SequentialTesting(test_type=TestType.MEAN, null_value=0.0, config=config)
 
         with pytest.raises(ValueError, match="No data provided"):
             test.update([])
 
     def test_variance_test_with_single_observation(self):
         config = EValueConfig(significance_level=0.05)
-        test = SequentialTesting(
-            test_type=TestType.VARIANCE,
-            null_value=1.0,
-            config=config
-        )
+        test = SequentialTesting(test_type=TestType.VARIANCE, null_value=1.0, config=config)
 
         result = test.update([1.0])
         assert result.e_value == 1.0
@@ -530,7 +529,7 @@ class TestSequentialTesting:
             null_value=0.0,
             alternative=AlternativeType.TWO_SIDED,
             config=config,
-            known_variance=known_var
+            known_variance=known_var,
         )
 
         data = np.random.normal(0.0, np.sqrt(known_var), 50)
@@ -550,7 +549,7 @@ class TestSequentialTesting:
             config=config,
             variance_bound=var_bound,
             use_empirical_variance=True,
-            min_samples_for_update=1
+            min_samples_for_update=1,
         )
 
         # Generate data with large variance
@@ -558,13 +557,16 @@ class TestSequentialTesting:
         _ = test.update(data)
 
         assert test.data_count == 100
-        assert hasattr(test, 'empirical_variance')
+        assert hasattr(test, "empirical_variance")
 
-    @pytest.mark.parametrize("test_type,null_value,data_generator", [
-        (TestType.MEAN, 0.0, lambda: np.random.normal(0.5, 1.0, 50)),
-        (TestType.PROPORTION, 0.5, lambda: np.random.binomial(1, 0.6, 50)),
-        (TestType.VARIANCE, 1.0, lambda: np.random.normal(0, np.sqrt(2), 50)),
-    ])
+    @pytest.mark.parametrize(
+        "test_type,null_value,data_generator",
+        [
+            (TestType.MEAN, 0.0, lambda: np.random.normal(0.5, 1.0, 50)),
+            (TestType.PROPORTION, 0.5, lambda: np.random.binomial(1, 0.6, 50)),
+            (TestType.VARIANCE, 1.0, lambda: np.random.normal(0, np.sqrt(2), 50)),
+        ],
+    )
     def test_all_test_types(self, test_type, null_value, data_generator):
         np.random.seed(42)
 
@@ -576,14 +578,14 @@ class TestSequentialTesting:
                 null_value=null_value,
                 quantile=0.5,
                 alternative=AlternativeType.TWO_SIDED,
-                config=config
+                config=config,
             )
         else:
             test = SequentialTesting(
                 test_type=test_type,
                 null_value=null_value,
                 alternative=AlternativeType.TWO_SIDED,
-                config=config
+                config=config,
             )
 
         data = data_generator()
@@ -596,20 +598,15 @@ class TestSequentialTesting:
         summary = test.get_summary()
         assert summary["test_type"] == test_type.value
 
-    @pytest.mark.parametrize("alternative", [
-        AlternativeType.TWO_SIDED,
-        AlternativeType.GREATER,
-        AlternativeType.LESS
-    ])
+    @pytest.mark.parametrize(
+        "alternative", [AlternativeType.TWO_SIDED, AlternativeType.GREATER, AlternativeType.LESS]
+    )
     def test_all_alternatives(self, alternative):
         np.random.seed(42)
 
         config = EValueConfig(significance_level=0.05)
         test = SequentialTesting(
-            test_type=TestType.MEAN,
-            null_value=0.0,
-            alternative=alternative,
-            config=config
+            test_type=TestType.MEAN, null_value=0.0, alternative=alternative, config=config
         )
 
         if alternative == AlternativeType.GREATER:

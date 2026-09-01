@@ -6,24 +6,25 @@ Based on:
     Ramdas & Wang (2025) "Hypothesis testing with e-values", Chapter 8
 """
 
-import pytest
-import numpy as np
 from math import comb
 
+import numpy as np
+import pytest
+
 from expectation.modules.merging import (
-    MergingFunction,
-    MergingConfig,
-    MergingResult,
     ArithmeticMeanMerger,
-    UStatisticMerger,
     LambdaProductMerger,
-    SegmentProductMerger,
+    MergingConfig,
+    MergingFunction,
+    MergingResult,
     ProductMerger,
-    create_merger,
+    SegmentProductMerger,
+    UStatisticMerger,
     arithmetic_mean_merge,
-    u_statistic_merge,
+    create_merger,
     lambda_product_merge,
     segment_product_merge,
+    u_statistic_merge,
 )
 
 
@@ -63,7 +64,7 @@ class TestArithmeticMeanMerger:
         S = 1.0
         for k in range(K):
             s_k = merger.gambling_system(e_values[:k], k)
-            S *= (1.0 + s_k * (e_values[k] - 1.0))
+            S *= 1.0 + s_k * (e_values[k] - 1.0)
 
         assert S == pytest.approx(batch_result.merged_e_value, rel=1e-12)
 
@@ -136,7 +137,7 @@ class TestUStatisticMerger:
         S = 1.0
         for k in range(K):
             s_k = merger.gambling_system(e_values[:k], k)
-            S *= (1.0 + s_k * (e_values[k] - 1.0))
+            S *= 1.0 + s_k * (e_values[k] - 1.0)
 
         assert S == pytest.approx(batch_result.merged_e_value, rel=1e-10)
 
@@ -159,9 +160,7 @@ class TestLambdaProductMerger:
         result_large = merger_large.merge(e)
 
         # Small lambda should be closer to 1
-        assert abs(result_small.merged_e_value - 1.0) < abs(
-            result_large.merged_e_value - 1.0
-        )
+        assert abs(result_small.merged_e_value - 1.0) < abs(result_large.merged_e_value - 1.0)
 
     def test_mathematical_identity(self):
         """prod(1 - lambda + lambda * e_k) manual check."""
@@ -243,7 +242,7 @@ class TestSegmentProductMerger:
         S = 1.0
         for k in range(K):
             s_k = merger.gambling_system(e_values[:k], k)
-            S *= (1.0 + s_k * (e_values[k] - 1.0))
+            S *= 1.0 + s_k * (e_values[k] - 1.0)
 
         assert S == pytest.approx(batch_result.merged_e_value, rel=1e-10)
 
@@ -265,9 +264,7 @@ class TestProductMerger:
         merger = ProductMerger()
         e = np.array([2.0, 3.0, 5.0])
         result = merger.merge(e)
-        assert result.log_merged_e_value == pytest.approx(
-            np.log(2.0) + np.log(3.0) + np.log(5.0)
-        )
+        assert result.log_merged_e_value == pytest.approx(np.log(2.0) + np.log(3.0) + np.log(5.0))
 
     def test_zero_e_value(self):
         merger = ProductMerger()
@@ -341,31 +338,25 @@ class TestProposition2:
             mean_merged = np.mean(merged)
             # E[F] should be close to 1 (or <=1 for sub-merging functions)
             # Allow some Monte Carlo noise
-            assert mean_merged < 1.3, (
-                f"{merger.__class__.__name__}: E[F] = {mean_merged:.4f} exceeds 1.3"
-            )
+            assert (
+                mean_merged < 1.3
+            ), f"{merger.__class__.__name__}: E[F] = {mean_merged:.4f} exceeds 1.3"
 
 
 class TestMergingConfigFactory:
     def test_factory_arithmetic_mean(self):
-        config = MergingConfig(
-            merging_function=MergingFunction.ARITHMETIC_MEAN, K=10
-        )
+        config = MergingConfig(merging_function=MergingFunction.ARITHMETIC_MEAN, K=10)
         merger = create_merger(config)
         assert isinstance(merger, ArithmeticMeanMerger)
 
     def test_factory_u_statistic(self):
-        config = MergingConfig(
-            merging_function=MergingFunction.U_STATISTIC, K=10, u_order=3
-        )
+        config = MergingConfig(merging_function=MergingFunction.U_STATISTIC, K=10, u_order=3)
         merger = create_merger(config)
         assert isinstance(merger, UStatisticMerger)
         assert merger.n == 3
 
     def test_factory_lambda_product(self):
-        config = MergingConfig(
-            merging_function=MergingFunction.LAMBDA_PRODUCT, lambda_param=0.3
-        )
+        config = MergingConfig(merging_function=MergingFunction.LAMBDA_PRODUCT, lambda_param=0.3)
         merger = create_merger(config)
         assert isinstance(merger, LambdaProductMerger)
         assert merger.lambda_param == 0.3
@@ -401,16 +392,12 @@ class TestMergingConfigFactory:
             result.merged_e_value = 2.0
 
     def test_factory_missing_K_raises(self):
-        config = MergingConfig(
-            merging_function=MergingFunction.ARITHMETIC_MEAN
-        )
+        config = MergingConfig(merging_function=MergingFunction.ARITHMETIC_MEAN)
         with pytest.raises(ValueError, match="K is required"):
             create_merger(config)
 
     def test_factory_missing_segments_raises(self):
-        config = MergingConfig(
-            merging_function=MergingFunction.SEGMENT_PRODUCT, K=10
-        )
+        config = MergingConfig(merging_function=MergingFunction.SEGMENT_PRODUCT, K=10)
         with pytest.raises(ValueError, match="segments is required"):
             create_merger(config)
 
@@ -441,14 +428,10 @@ class TestConvenienceFunctions:
         e = np.array([1.5, 2.5, 3.5, 4.5])
 
         merger = ArithmeticMeanMerger(K=4)
-        assert arithmetic_mean_merge(e) == pytest.approx(
-            merger.merge(e).merged_e_value
-        )
+        assert arithmetic_mean_merge(e) == pytest.approx(merger.merge(e).merged_e_value)
 
         merger = UStatisticMerger(n=2, K=4)
-        assert u_statistic_merge(e, n=2) == pytest.approx(
-            merger.merge(e).merged_e_value
-        )
+        assert u_statistic_merge(e, n=2) == pytest.approx(merger.merge(e).merged_e_value)
 
         merger = LambdaProductMerger(lambda_param=0.4)
         assert lambda_product_merge(e, lambda_param=0.4) == pytest.approx(

@@ -102,6 +102,8 @@ jobs:
 
       - name: Install and test
         run: |
+          python -m venv .venv
+          source .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           maturin develop --release --locked
