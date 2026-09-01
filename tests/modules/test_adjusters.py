@@ -29,6 +29,12 @@ from expectation.modules.adjusters import (
 
 TOLERANCE = 1e-13
 
+# Comparisons that round-trip through exp()/log() (naive linear-space adjuster
+# vs the stable log-space path) are limited by platform transcendental rounding.
+# MSVC's exp/log diverge from glibc/macOS near the adjuster's E->1 singularity,
+# so this cross-check uses a looser bound than the golden 1e-13.
+CROSS_VALIDATION_TOLERANCE = 1e-12
+
 
 # ---------------------------------------------------------------------------
 # Boundary values
@@ -281,7 +287,7 @@ class TestRustCrossValidation:
         # Instead, just verify Python values are self-consistent.
         for i, log_e in enumerate(log_values):
             natural_log = np.log(adj.adjust(np.exp(log_e)))
-            assert abs(py_results[i] - natural_log) < TOLERANCE, (
+            assert abs(py_results[i] - natural_log) < CROSS_VALIDATION_TOLERANCE, (
                 f"Cross-validation failed at log_e={log_e}: "
                 f"log_adjust={py_results[i]}, log(adjust(exp))={natural_log}"
             )
