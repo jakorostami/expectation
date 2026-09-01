@@ -1,0 +1,258 @@
+name: Release
+
+# Triggered by a pushed semver tag (the normal path, created by bump.yml) or
+# dispatched manually with a dry-run toggle. Runs the full test gate, builds the
+# exact artifacts, verifies them, then publishes to PyPI via trusted publishing
+# and creates the GitHub release.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Verify everything but skip PyPI publish and the GitHub release'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write   # create the GitHub release
+  id-token: write   # PyPI trusted publishing (OIDC)
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: Resolve version and publish decision
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      publish: ${{ steps.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve version and publish flag
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            version="${GITHUB_REF_NAME}"
+          else
+            version=$(grep -m1 -E '^version = "' pyproject.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Publish for real on tag pushes, or on a dispatch with dry_run=false.
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            publish=true
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${{ inputs.dry_run }}" == "false" ]]; then
+            publish=true
+          else
+            publish=false
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Version $version, publish=$publish (event=${GITHUB_EVENT_NAME})"
+
+      - name: Verify version consistency
+        run: bash scripts/check_version.sh
+
+      # For a tag build, the tag must equal the manifest version, otherwise we
+      # would ship artifacts whose version disagrees with the tag.
+      - name: Tag matches manifest
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          manifest=$(grep -m1 -E '^version = "' pyproject.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          if [[ "$manifest" != "${GITHUB_REF_NAME}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest version $manifest" >&2
+            exit 1
+          fi
+
+  test:
+    name: Test gate (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.12', '3.13']
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          maturin develop --release --locked
+          pytest -m "not performance"
+
+  build:
+    name: Build ${{ matrix.target || 'sdist' }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: universal2-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-latest
+            target: ''  # sdist
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build sdist
+        if: matrix.target == ''
+        run: |
+          pip install maturin
+          # sdist has no --locked flag; the committed Cargo.lock is bundled and
+          # the completeness checks below confirm end users can build from it.
+          maturin sdist --out dist
+          tar -tzf dist/*.tar.gz | grep -q "Cargo.toml"
+          tar -tzf dist/*.tar.gz | grep -q "Cargo.lock"
+          tar -tzf dist/*.tar.gz | grep -q "rust/lib.rs"
+
+      # abi3-py310: one wheel per platform covers every Python >= 3.10.
+      - name: Build wheel
+        if: matrix.target != ''
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --locked --out dist
+          sccache: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target || 'sdist' }}
+          path: dist/*
+
+  verify:
+    name: Verify shipped artifacts (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      # Gate 1: the exact wheel we are about to publish, installed into a clean
+      # venv, with tests run from a neutral directory so the local package
+      # source cannot shadow the installed wheel.
+      - name: Test built wheel
+        run: |
+          python -m venv /tmp/wheelenv
+          source /tmp/wheelenv/bin/activate
+          WHEEL=$(ls dist/*.whl | head -1)
+          pip install "$WHEEL" pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+
+      # Gate 2: the exact sdist — exercises the end-user source build (compiles
+      # the Rust backend from scratch).
+      - name: Test built sdist
+        run: |
+          python -m venv /tmp/sdistenv
+          source /tmp/sdistenv/bin/activate
+          SDIST=$(ls dist/*.tar.gz | head -1)
+          pip install "$SDIST" pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+
+  publish:
+    name: Publish to PyPI and create GitHub release
+    needs: [setup, verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/expectation
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        if: needs.setup.outputs.publish == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub release
+        if: needs.setup.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.setup.outputs.version }}
+          name: v${{ needs.setup.outputs.version }}
+          files: dist/*
+
+      - name: Dry-run summary
+        if: needs.setup.outputs.publish != 'true'
+        run: |
+          {
+            echo "### Dry run for v${{ needs.setup.outputs.version }}"
+            echo ""
+            echo "All gates passed. PyPI publish and GitHub release were skipped."
+            echo ""
+            echo "Artifacts that would be published:"
+            echo '```'
+            ls -la dist/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,89 @@
+name: Bump version
+
+# Manual, dispatch-only. Runs scripts/bump_version.sh, commits the change,
+# pushes a semver tag, and hands off to release.yml. Nothing is published here.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version (X.Y.Z) or a bump type: patch | minor | major'
+        required: true
+        type: string
+      dry_run:
+        description: 'Forwarded to release.yml: verify everything but skip PyPI publish and the GitHub release'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write   # push the bump commit and tag
+  actions: write    # dispatch release.yml for the new tag
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump, tag, and trigger release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # need full history/tags to push a new tag
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      # scripts/bump_version.sh updates every manifest + README + Cargo.lock and
+      # runs scripts/check_version.sh internally; its last stdout line is the
+      # new version.
+      - name: Bump version
+        id: bump
+        run: |
+          set -euo pipefail
+          new=$(bash scripts/bump_version.sh "${{ inputs.version }}" | tail -n1)
+          echo "version=$new" >> "$GITHUB_OUTPUT"
+
+      # Prove the edited lockfile is still internally consistent before tagging,
+      # so release.yml's --locked builds cannot fail on a stale lock.
+      - name: Validate lockfile
+        run: cargo metadata --locked --format-version 1 > /dev/null
+
+      - name: Commit and tag
+        id: tag
+        run: |
+          set -euo pipefail
+          version="${{ steps.bump.outputs.version }}"
+          if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+            echo "Tag $version already exists" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml Cargo.toml CITATION.cff README.md Cargo.lock
+          git commit -m "release: v$version"
+          git tag "$version"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "$version"
+
+      # The tag was pushed with GITHUB_TOKEN, which by design does not trigger
+      # release.yml's `push: tags` event, so trigger it explicitly on the tag.
+      - name: Trigger release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run release.yml \
+            --ref "${{ steps.bump.outputs.version }}" \
+            -f dry_run=${{ inputs.dry_run }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Version bumped to \`${{ steps.bump.outputs.version }}\`"
+            echo ""
+            echo "Tag \`${{ steps.bump.outputs.version }}\` pushed and release.yml dispatched (dry_run=${{ inputs.dry_run }})."
+          } >> "$GITHUB_STEP_SUMMARY"
