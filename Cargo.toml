@@ -1,6 +1,6 @@
 [package]
 name = "expectation"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 rust-version = "1.70"
 authors = ["Jako Rostami <rostami.jako@gmail.com>"]
