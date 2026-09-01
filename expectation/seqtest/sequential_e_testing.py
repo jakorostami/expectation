@@ -34,6 +34,7 @@ from expectation.modules.quantiletest import (
 from expectation.modules.epower import EPowerCalculator, EPowerConfig, EPowerType
 
 from expectation.modules.eprocessupdater import EProcessUpdater
+from expectation.modules.calibrators import EToPCalibrator
 
 from expectation.modules import boundaries
 
@@ -190,9 +191,10 @@ class SequentialTesting:
             self.config = config or EValueConfig()
         
         self.e_process = EProcess(config=self.config)
-        
+
         self.e_process_updater = EProcessUpdater(self.config)
-        
+        self._calibrator = EToPCalibrator()
+
         if log_optimal_expectation:
             self.e_process_updater.set_log_optimal_expectation(log_optimal_expectation)
         
@@ -492,7 +494,7 @@ class SequentialTesting:
         
             self.e_power_history.append(e_power)
         
-        p_value = min(1.0, 1.0/current_value) if current_value > 0 else 1.0
+        p_value = self._calibrator(current_value)
         
         confidence_bounds = self._compute_confidence_bounds()
         
@@ -762,8 +764,9 @@ class SequentialTesting:
             "max_e_value": self.e_process_updater.get_max_value(self.e_process),
             "is_significant": self.e_process_updater.is_significant(self.e_process),
             "stopping_time": self.e_process_updater.get_stopping_time(self.e_process),
-            "p_value": min(1.0, 1.0/self.e_process_updater.get_current_value(self.e_process)) 
-                       if self.e_process_updater.get_current_value(self.e_process) > 0 else 1.0,
+            "p_value": self._calibrator(
+                self.e_process_updater.get_current_value(self.e_process)
+            ),
             
             "empirical_e_power": self.e_process_updater.compute_empirical_e_power(self.e_process),
             "asymptotic_growth_rate": self.e_process_updater.compute_asymptotic_growth_rate(self.e_process),
