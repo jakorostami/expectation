@@ -5,7 +5,7 @@ build-backend = "maturin"
 
 [project]
 name = "expectation"
-version = "0.5.2"
+version = "0.6"
 authors = [
   { name="Jako Rostami", email="rostami.jako@gmail.com" },
 ]
