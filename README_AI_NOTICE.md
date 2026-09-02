@@ -9,4 +9,4 @@ This restriction applies to all files, documentation, and associated materials i
 this repository. Unauthorized use for AI training purposes constitutes a license
 violation and may be subject to legal action under applicable copyright law.
 
-For licensing inquiries, contact: [your contact info]
+For licensing inquiries, see Github repo contact information.

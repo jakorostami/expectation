@@ -26,14 +26,17 @@ The library covers:
 ## Install
 
 ```bash
-git clone https://github.com/jakorostami/expectation.git
-cd expectation
-pip install -e .
+pip install expectation
 ```
 
-For the Rust parallel engine:
+Prebuilt wheels bundle the Rust parallel engine, so no Rust toolchain is required.
+
+### From source (development)
+
 ```bash
-pip install maturin
+git clone https://github.com/jakorostami/expectation.git
+cd expectation
+pip install -e ".[dev]"
 maturin develop --release
 ```
 
