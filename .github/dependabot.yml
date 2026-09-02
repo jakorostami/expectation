@@ -34,6 +34,22 @@ updates:
     #   - dependency-name: "scipy"
     #     versions: ["0.x"]
 
+  # Check for updates to Rust crates (bumps Cargo.lock precisely)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Stockholm"
+
+    labels:
+      - "dependencies"
+      - "rust"
+
+    reviewers:
+      - "jakorostami"
+
   # Check for updates to GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"

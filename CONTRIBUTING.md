@@ -19,8 +19,7 @@ cd expectation
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e .
-pip install pytest pytest-cov black isort mypy pre-commit
-pre-commit install
+pip install pytest pytest-cov
 ```
 
 ### Making Changes 📝
@@ -69,9 +68,10 @@ Then head to GitHub and create a Pull Request!
 ## Best Practices 🎯
 
 ### Code Style
-- We use Black for formatting
-- Type hints are awesome
-- Clear variable names make everyone happy
+- Use Pydantic
+- Docstrings are important but use them where needed
+- Type hints are mandatory!
+- Clear variable names make everyone happy (ThisIsAClass convention)
 - Comments explain the "why", code shows the "how"
 
 ### Tests
@@ -116,6 +116,9 @@ It is the work of the following people this library is focused around so it is w
 [Ruodu Wang](https://sas.uwaterloo.ca/~wang/) <br>
 [Hongjian Wang](https://wanghongjian.wordpress.com) <br>
 [Ian Waudby-Smith](https://ianws.com) <br>
+[Wouter M. Koolen](https://wouterkoolen.info) <br>
+[Ben Chugg](https://benchugg.com) <br>
+
 
 
 ## Recognition ⭐

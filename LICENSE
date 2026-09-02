@@ -672,3 +672,44 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+===========================================================================
+
+ADDITIONAL TERMS
+
+Additional Term pursuant to Section 7(b) of the GNU General Public License
+version 3 ("GPL-3.0"):
+
+1. AI/ML Training Restriction. You may not use, copy, modify, or distribute
+   the source code, object code, documentation, or any other materials in this
+   repository ("the Software"), in whole or in part, directly or indirectly,
+   for the purpose of:
+
+   a) Training, fine-tuning, distilling, or otherwise developing machine
+      learning models, artificial intelligence systems, or neural networks;
+
+   b) Constructing or augmenting datasets intended for use in activities
+      described in (a);
+
+   c) Providing the Software as input to any automated system that performs
+      activities described in (a).
+
+   This restriction applies regardless of whether the Software is used in
+   its original form or in a modified, excerpted, or transformed version.
+
+2. Written Permission. The above restriction may only be waived by explicit
+   written permission from the copyright holder:
+
+   Jako Rostami
+   rostami.jako@gmail.com
+
+3. Severability. If any part of this Additional Term is found to be
+   unenforceable, the remainder shall continue to apply to the maximum
+   extent permitted by law.
+
+4. Notice Requirement. Any redistribution of the Software must include this
+   Additional Term in its entirety, in addition to the full text of the
+   GPL-3.0 license.
+
+Copyright (c) Jako Rostami 2024-present
+Project: expectation

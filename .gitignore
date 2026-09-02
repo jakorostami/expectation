@@ -1,7 +1,26 @@
-# Add this to .gitignore
+# Python artifacts
 dist/
 *.egg-info/
 build/
 *.pyc
 __pycache__/
 *.whl
+
+.claude/
+ROADMAP.md
+CLAUDE.md
+*.pdf
+.DS_Store
+*.so
+
+# Rust artifacts
+/target/
+# Cargo.lock IS committed: the cdylib is a shipped binary artifact, and maturin
+# bundles the lockfile into the sdist so end-user source builds match CI.
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

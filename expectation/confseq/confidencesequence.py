@@ -1,13 +1,27 @@
-import numpy as np
-from pydantic import BaseModel, Field, ConfigDict
-from numpy.typing import NDArray
-from scipy import special, optimize
+# SPDX-License-Identifier: GPL-3.0-only AND LicenseRef-AI-Training-Prohibited
+# Copyright (c) Jako Rostami 2024-present
+# Project: expectation
+#
+# Licensed under GPL-3.0 with additional restrictions per Section 7(b).
+# Use of this code for AI/ML model training is strictly prohibited.
+# See LICENSE for full terms.
+
 from typing import Callable, Optional
+
+import numpy as np
+from numpy.typing import NDArray
+from pydantic import BaseModel, ConfigDict, Field
+from scipy import optimize, special
+
+from expectation.confseq.confidenceconfig import (
+    BoundaryType,
+    ConfidenceSequenceConfig,
+    EmpiricalBernsteinConfig,
+    EstimandType,
+)
 from expectation.modules import boundaries
-from expectation.confseq.confidenceconfig import (BoundaryType, 
-                                                  EstimandType, 
-                                                  ConfidenceSequenceConfig, 
-                                                  EmpiricalBernsteinConfig)
+
+
 # Source for this implementation: "Time-uniform, nonparametric, nonasymptotic confidence sequences" - https://arxiv.org/pdf/1810.08240
 class ConfidenceSequenceState(BaseModel):
     n_samples: int = Field(default=0, ge=0)
@@ -18,6 +32,7 @@ class ConfidenceSequenceState(BaseModel):
     variance_estimate: Optional[float] = None
     model_config = ConfigDict(frozen=True)  # State is immutable
 
+
 class ConfidenceSequenceResult(BaseModel):
     lower: float = Field(description="Lower confidence bound")
     upper: float = Field(description="Upper confidence bound")
@@ -26,10 +41,11 @@ class ConfidenceSequenceResult(BaseModel):
     estimand: EstimandType = Field(description="Type of parameter being estimated")
     boundary_type: BoundaryType = Field(description="Type of boundary used")
     timestamp: float = Field(
-        default_factory=lambda: np.datetime64('now').astype(float),
-        description="Timestamp of update"
+        default_factory=lambda: np.datetime64("now").astype(float),
+        description="Timestamp of update",
     )
     model_config = ConfigDict(frozen=True)
+
 
 class ConfidenceSequence(BaseModel):
     config: ConfidenceSequenceConfig
@@ -37,27 +53,27 @@ class ConfidenceSequence(BaseModel):
     estimand: EstimandType = Field(default=EstimandType.MEAN)
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def update(self, new_data: NDArray[np.float_]) -> ConfidenceSequenceResult:
+    def update(self, new_data: NDArray[np.float64]) -> ConfidenceSequenceResult:
         data = np.asarray(new_data)
         n_new = len(data)
-        
+
         # calculate new state values
         new_sum = self.state.sum + np.sum(data)
         new_n_samples = self.state.n_samples + n_new
         new_running_mean = new_sum / new_n_samples
-        
+
         # update empirical variance estimate
         if new_n_samples > 1:
-            new_sum_squares = (self.state.sum_squares + 
-                             np.sum((data - new_running_mean) * 
-                                  (data - self.state.running_mean)))
+            new_sum_squares = self.state.sum_squares + np.sum(
+                (data - new_running_mean) * (data - self.state.running_mean)
+            )
             variance_estimate = new_sum_squares / (new_n_samples - 1)
             intrinsic_time = new_n_samples * variance_estimate
         else:
             new_sum_squares = 0
             variance_estimate = None
             intrinsic_time = new_n_samples
-            
+
         # create new state (immutable)
         new_state = ConfidenceSequenceState(
             n_samples=new_n_samples,
@@ -65,21 +81,25 @@ class ConfidenceSequence(BaseModel):
             sum_squares=new_sum_squares,
             running_mean=new_running_mean,
             intrinsic_time=intrinsic_time,
-            variance_estimate=variance_estimate
+            variance_estimate=variance_estimate,
         )
-        
+
         # use existing boundary implementations
-        radius = (1.0 / new_n_samples * boundaries.gamma_exponential_mixture_bound(
-            intrinsic_time, 
-            self.config.alpha/2,
-            self.config.v_opt,
-            self.config.c,
-            alpha_opt=self.config.alpha_opt/2
-        ))
+        radius = (
+            1.0
+            / new_n_samples
+            * boundaries.gamma_exponential_mixture_bound(
+                intrinsic_time,
+                self.config.alpha / 2,
+                self.config.v_opt,
+                self.config.c,
+                alpha_opt=self.config.alpha_opt / 2,
+            )
+        )
 
         # update state
         self.state = new_state
-        
+
         return ConfidenceSequenceResult(
             lower=new_running_mean - radius,
             upper=new_running_mean + radius,
@@ -88,36 +108,36 @@ class ConfidenceSequence(BaseModel):
             estimand=self.estimand,  # use estimand from class field
             boundary_type=self.config.boundary_type,  # use boundary type from config
         )
-    
+
     def reset(self) -> None:
         self.state = ConfidenceSequenceState()
+
 
 class EmpiricalBernsteinConfidenceSequence(ConfidenceSequence):
     """
     Empirical Bernstein confidence sequence for bounded observations.
     """
+
     config: EmpiricalBernsteinConfig
-    
-    def update(self, new_data: NDArray[np.float_]) -> ConfidenceSequenceResult:
+
+    def update(self, new_data: NDArray[np.float64]) -> ConfidenceSequenceResult:
         data = np.asarray(new_data)
-        
+
         if (data < self.config.lower_bound).any() or (data > self.config.upper_bound).any():
             raise ValueError(
                 f"All observations must be within [{self.config.lower_bound}, "
                 f"{self.config.upper_bound}]"
             )
-            
+
         result = super().update(data)
         range_width = self.config.upper_bound - self.config.lower_bound
-        
+
         return ConfidenceSequenceResult(
-            lower=max(self.config.lower_bound, 
-                     result.lower * range_width),
-            upper=min(self.config.upper_bound, 
-                     result.upper * range_width),
+            lower=max(self.config.lower_bound, result.lower * range_width),
+            upper=min(self.config.upper_bound, result.upper * range_width),
             state=result.state,
             sample_size=result.sample_size,
             estimand=self.estimand,
             boundary_type=self.config.boundary_type,
-            timestamp=result.timestamp
+            timestamp=result.timestamp,
         )

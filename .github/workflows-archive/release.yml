@@ -1,0 +1,263 @@
+name: Release
+
+# Fully dispatch-driven: CI bumps the version, commits, tags, tests, builds,
+# verifies the exact artifacts, publishes to PyPI, and creates the GitHub
+# release. Nothing runs on a maintainer machine.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New version (X.Y.Z), or bump type: patch | minor | major'
+        required: true
+        type: string
+      dry_run:
+        description: 'Verify everything but skip PyPI publish and GitHub release'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write   # version bump commit, tag, GitHub release
+  id-token: write   # PyPI trusted publishing (OIDC)
+
+jobs:
+  bump:
+    name: Bump version and tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compute and apply new version
+        id: bump
+        run: |
+          set -euo pipefail
+          INPUT="${{ inputs.version }}"
+          CURRENT=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          case "$INPUT" in
+            patch|minor|major)
+              IFS=. read -r MA MI PA <<< "$CURRENT"
+              case "$INPUT" in
+                patch) PA=$((PA+1));;
+                minor) MI=$((MI+1)); PA=0;;
+                major) MA=$((MA+1)); MI=0; PA=0;;
+              esac
+              NEW="$MA.$MI.$PA";;
+            *)
+              NEW="$INPUT";;
+          esac
+          if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$NEW' is not a valid semver X.Y.Z"
+            exit 1
+          fi
+          if [[ "$NEW" == "$CURRENT" ]]; then
+            echo "::error::Version $NEW equals current version"
+            exit 1
+          fi
+          echo "Bumping $CURRENT -> $NEW"
+          # Single source of truth update: all manifests + README references.
+          sed -i "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml Cargo.toml
+          sed -i "s/^version: $CURRENT/version: $NEW/" CITATION.cff
+          sed -i "s/v$CURRENT)/v$NEW)/; s/version = {$CURRENT}/version = {$NEW}/; s/(Version $CURRENT)/(Version $NEW)/" README.md
+          # Refresh Cargo.lock so the committed lockfile matches Cargo.toml.
+          cargo check --locked 2>/dev/null || cargo check
+          grep -q "^version = \"$NEW\"" pyproject.toml Cargo.toml
+          grep -q "^version: $NEW" CITATION.cff
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml Cargo.toml CITATION.cff README.md Cargo.lock
+          git commit -m "release: v${{ steps.bump.outputs.version }}"
+          git tag "${{ steps.bump.outputs.version }}"
+          git push origin HEAD
+          git push origin "${{ steps.bump.outputs.version }}"
+
+  test:
+    name: Test gate (${{ matrix.os }}, Python ${{ matrix.python }})
+    needs: bump
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.12', '3.13']
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          maturin develop --release --locked
+          pytest -m "not performance"
+
+  build:
+    name: Build ${{ matrix.target || 'sdist' }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: universal2-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-latest
+            target: ''  # sdist
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build sdist
+        if: matrix.target == ''
+        run: |
+          pip install maturin
+          maturin sdist --locked --out dist
+          # sdist completeness: end users compile Rust from this tarball.
+          tar -tzf dist/*.tar.gz | grep -q "Cargo.toml"
+          tar -tzf dist/*.tar.gz | grep -q "Cargo.lock"
+          tar -tzf dist/*.tar.gz | grep -q "rust/lib.rs"
+
+      # abi3-py310: one wheel per platform covers every Python >= 3.10.
+      - name: Build wheel
+        if: matrix.target != ''
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --locked --out dist
+          sccache: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target || 'sdist' }}
+          path: dist/*
+
+  verify:
+    name: Verify shipped artifacts (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      # Gate 1: the exact wheel we are about to publish, installed into a
+      # clean venv, with tests run from a neutral directory so the local
+      # package source cannot shadow the installed wheel.
+      - name: Test built wheel
+        run: |
+          python -m venv /tmp/wheelenv
+          source /tmp/wheelenv/bin/activate
+          WHEEL=$(ls dist/*.whl | head -1)
+          pip install "$WHEEL" pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+
+      # Gate 2: the exact sdist we are about to publish — this exercises the
+      # end-user source-build path (compiles the Rust backend from scratch).
+      - name: Test built sdist
+        run: |
+          python -m venv /tmp/sdistenv
+          source /tmp/sdistenv/bin/activate
+          SDIST=$(ls dist/*.tar.gz | head -1)
+          pip install "$SDIST" pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+
+  publish:
+    name: Publish to PyPI and create GitHub release
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/expectation
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        if: ${{ !inputs.dry_run }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.bump.outputs.version }}
+          name: v${{ needs.bump.outputs.version }}
+          files: dist/*
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "Dry run for v${{ needs.bump.outputs.version }}: all gates passed."
+          echo "Artifacts that would be published:"
+          ls -la dist/
