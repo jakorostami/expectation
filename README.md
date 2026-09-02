@@ -7,7 +7,7 @@
 
 Sequential hypothesis testing with e-values and e-processes. Optional Rust acceleration for massively parallel testing (300K+ simultaneous tests at ~24 ns/test).
 
-> v0.6.0 — the public API may still evolve before 1.0.
+> v0.6.1 — the public API may still evolve before 1.0.
 
 ## What this does
 
@@ -101,11 +101,11 @@ stops = engine.stopping_times()     # when each test rejected
   title = {expectation: Sequential testing with e-values and e-processes},
   year = {2024},
   url = {https://github.com/jakorostami/expectation},
-  version = {0.6.0}
+  version = {0.6.1}
 }
 ```
 
 ### APA
 ```
-Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.6.0) [Computer software]. https://github.com/jakorostami/expectation
+Rostami, J. (2024). expectation: Python library for sequential testing and e-processes (Version 0.6.1) [Computer software]. https://github.com/jakorostami/expectation
 ```
