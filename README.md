@@ -7,7 +7,7 @@
 
 Sequential hypothesis testing with e-values and e-processes. Optional Rust acceleration for massively parallel testing (300K+ simultaneous tests at ~24 ns/test).
 
-> Pre-release (v0.6.0). API may change before 1.0.
+> v0.6.0 — the public API may still evolve before 1.0.
 
 ## What this does
 
