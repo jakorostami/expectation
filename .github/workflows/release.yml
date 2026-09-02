@@ -148,9 +148,13 @@ jobs:
           # sdist has no --locked flag; the committed Cargo.lock is bundled and
           # the completeness checks below confirm end users can build from it.
           maturin sdist --out dist
-          tar -tzf dist/*.tar.gz | grep -q "Cargo.toml"
-          tar -tzf dist/*.tar.gz | grep -q "Cargo.lock"
-          tar -tzf dist/*.tar.gz | grep -q "rust/lib.rs"
+          # List once, then match in-memory: piping `tar | grep -q` makes grep
+          # close the pipe on first match, so tar dies with a write error under
+          # `set -o pipefail`.
+          listing=$(tar -tzf dist/*.tar.gz)
+          for f in Cargo.toml Cargo.lock rust/lib.rs; do
+            grep -qF "$f" <<<"$listing" || { echo "sdist is missing $f" >&2; exit 1; }
+          done
 
       # abi3-py310: one wheel per platform covers every Python >= 3.10.
       - name: Build wheel
