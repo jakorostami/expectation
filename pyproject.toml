@@ -41,7 +41,7 @@ dev = [
     "maturin>=1.9",
     "black>=24.0",
     "isort>=5.13",
-    "mypy>=1.8",
+    "mypy>=2.3.1",
 ]
 
 [project.urls]
