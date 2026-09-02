@@ -2,7 +2,7 @@
 [build-system]
 # maturin >= 1.7 is required for PEP 639 metadata (SPDX `license` expression
 # and `license-files`); older versions reject the string-form license field.
-requires = ["maturin>=1.7,<2.0"]
+requires = ["maturin>=1.15.0,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -38,7 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
-    "maturin>=1.9",
+    "maturin>=1.15.0",
     "black>=24.0",
     "isort>=5.13",
     "mypy>=1.8",
