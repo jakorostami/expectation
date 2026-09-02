@@ -40,7 +40,7 @@ dev = [
     "pytest>=8.0",
     "maturin>=1.9",
     "black>=24.0",
-    "isort>=5.13",
+    "isort>=9.0.1",
     "mypy>=1.8",
 ]
 
