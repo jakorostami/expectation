@@ -28,7 +28,7 @@ jobs:
     name: Bump, tag, and trigger release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # need full history/tags to push a new tag
 
