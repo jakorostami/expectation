@@ -1,10 +1,7 @@
-import pytest
 import numpy as np
-from expectation.modules.calibrators import (
-    EToPCalibrator,
-    PToECalibrator,
-    PToECalibratorType
-)
+import pytest
+
+from expectation.modules.calibrators import EToPCalibrator, PToECalibrator, PToECalibratorType
 
 
 class TestEToPCalibrator:
@@ -34,7 +31,7 @@ class TestEToPCalibrator:
 class TestPToECalibrator:
     def test_shafer_default(self):
         calibrator = PToECalibrator()
-        assert calibrator(0.01) == pytest.approx(9.0) # page 24 chapter 2
+        assert calibrator(0.01) == pytest.approx(9.0)  # page 24 chapter 2
         assert calibrator(0.25) == pytest.approx(1.0)
 
     def test_linear(self):
@@ -45,10 +42,7 @@ class TestPToECalibrator:
         assert calibrator(1.0) == pytest.approx(0.0)
 
     def test_power(self):
-        calibrator = PToECalibrator(
-            calibrator_type=PToECalibratorType.POWER,
-            kappa=0.5
-        )
+        calibrator = PToECalibrator(calibrator_type=PToECalibratorType.POWER, kappa=0.5)
         assert calibrator(0.01) == pytest.approx(5.0, rel=1e-6)
 
     def test_logarithmic(self):

@@ -5,9 +5,15 @@ edition = "2021"
 rust-version = "1.70"
 authors = ["Jako Rostami <rostami.jako@gmail.com>"]
 description = "Rust implementation of statistical functions for expectation library"
-license = "MIT"
+# GPL-3.0 with Additional Terms (AI/ML training restriction) — see LICENSE.
+license-file = "LICENSE"
 repository = "https://github.com/jakorostami/expectation"
 readme = "README.md"
+# Cargo target auto-discovery disabled so a stray examples/*.rs cannot be pulled
+# into `cargo fmt --all` / `cargo clippy --all-targets` and break the Rust CI.
+autoexamples = false
+autobins = false
+autobenches = false
 
 [lib]
 name = "expectation_rust"
@@ -18,7 +24,7 @@ path = "rust/lib.rs"
 
 [dependencies]
 # PyO3 for Python bindings
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+pyo3 = { version = "0.22", features = ["abi3-py310"] }
 
 # Numerical computation libraries
 ndarray = "0.16"
@@ -47,10 +53,3 @@ debug = true
 # Benchmarking profile
 inherits = "release"
 debug = true
-
-# Python packaging metadata
-[package.metadata.maturin]
-# Compatibility with abi3 means the wheel works with Python 3.10+
-python-source = "python"
-# This preserves the existing Python package structure
-module-name = "expectation._rust"

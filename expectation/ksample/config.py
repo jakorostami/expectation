@@ -82,9 +82,7 @@ class KSampleConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     k: int = Field(gt=1, description="Number of groups")
-    significance_level: float = Field(
-        gt=0, lt=1, default=0.05, description="Type-I error level"
-    )
+    significance_level: float = Field(gt=0, lt=1, default=0.05, description="Type-I error level")
     gamma: float = Field(
         gt=0,
         default=0.18,
@@ -130,18 +128,12 @@ class KSampleConfig(BaseModel):
                     "is defined for two groups."
                 )
             if self.divergence_type is None:
-                raise ValueError(
-                    "divergence_type is required when alternative_type == EFFECT_SIZE"
-                )
+                raise ValueError("divergence_type is required when alternative_type == EFFECT_SIZE")
             if self.min_effect_size is None:
-                raise ValueError(
-                    "min_effect_size is required when alternative_type == EFFECT_SIZE"
-                )
+                raise ValueError("min_effect_size is required when alternative_type == EFFECT_SIZE")
         if self.alternative_type == KSampleAlternativeType.SIMPLE:
             if self.simple_theta is None:
-                raise ValueError(
-                    "simple_theta is required when alternative_type == SIMPLE"
-                )
+                raise ValueError("simple_theta is required when alternative_type == SIMPLE")
             if len(self.simple_theta) != self.k:
                 raise ValueError(
                     f"simple_theta must have exactly k={self.k} entries, "

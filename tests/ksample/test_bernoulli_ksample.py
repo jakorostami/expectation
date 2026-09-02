@@ -19,6 +19,7 @@ from expectation.ksample.ksample_test import KSampleSequentialTest
 from expectation.modules.calibrators import EToPCalibrator
 from expectation.modules.hypothesistesting import BettingStrategy
 
+
 class TestKSampleConfig:
     def test_default_config(self):
         config = KSampleConfig(k=2)
@@ -82,19 +83,22 @@ class TestKSampleConfig:
         with pytest.raises(Exception):
             config.k = 3
 
+
 class TestUnrestrictedAlternative:
     def test_first_block_symmetric_gives_e_value_1(self):
         config = KSampleConfig(k=2, gamma=0.18)
         test = KSampleSequentialTest(config)
 
-        result = test.update({0: np.array([1, 0]), 1: np.array([1, 0])}) # Symmetric data -> same proportion in both groups
+        result = test.update(
+            {0: np.array([1, 0]), 1: np.array([1, 0])}
+        )  # Symmetric data -> same proportion in both groups
         # All theta_hats start at 0.5 (prior), so log e-value should be approx 0
         assert abs(result.e_value - 1.0) < 1e-10
 
     def test_more_extreme_data_larger_e_value(self):
         config = KSampleConfig(k=2, gamma=0.18)
 
-        test_moderate = KSampleSequentialTest(config) # run with moderate difference
+        test_moderate = KSampleSequentialTest(config)  # run with moderate difference
         for _ in range(20):
             test_moderate.update({0: np.array([1, 1, 0]), 1: np.array([0, 0, 1])})
         moderate_process = test_moderate.e_process.process_values[-1]
@@ -125,7 +129,9 @@ class TestUnrestrictedAlternative:
         config = KSampleConfig(k=2, gamma=1.0)
         test = KSampleSequentialTest(config)
 
-        test.update({0: np.array([1, 1, 1, 1, 1]), 1: np.array([0, 0, 0, 0, 0])}) # after feeding data posterior means should shift
+        test.update(
+            {0: np.array([1, 1, 1, 1, 1]), 1: np.array([0, 0, 0, 0, 0])}
+        )  # after feeding data posterior means should shift
         # Now group 0 has 5 successes out of 5, group 1 has 0 out of 5
         # Posterior mean for group 0: (5 + 1)/(5 + 2) = 6/7
         # Posterior mean for group 1: (0 + 1)/(5 + 2) = 1/7
@@ -133,6 +139,7 @@ class TestUnrestrictedAlternative:
         result = test.update({0: np.array([1]), 1: np.array([0])})
         assert abs(result.theta_estimates[0] - 6.0 / 7.0) < 1e-10
         assert abs(result.theta_estimates[1] - 1.0 / 7.0) < 1e-10
+
 
 class TestSimpleAlternative:
     def test_simple_alternative_fixed_theta(self):
@@ -195,9 +202,7 @@ class TestEffectSizeRestricted:
 
         # grid_theta_b = grid_theta_a + 0.1, all in (0, 1)
         assert len(calc.grid_theta_a) > 0
-        np.testing.assert_allclose(
-            calc.grid_theta_b, calc.grid_theta_a + 0.1, atol=1e-14
-        )
+        np.testing.assert_allclose(calc.grid_theta_b, calc.grid_theta_a + 0.1, atol=1e-14)
         assert np.all(calc.grid_theta_a > 0)
         assert np.all(calc.grid_theta_b < 1)
 
@@ -277,6 +282,7 @@ class TestEVariableProperty:
         # Should be close to 1 (within ~0.15 for 2000 samples)
         assert 0.8 < mean_e < 1.2, f"Mean e-value under H0: {mean_e}"
 
+
 class TestTypeIError:
     @pytest.mark.parametrize("k", [2, 3])
     def test_type_i_error_rate(self, k):
@@ -294,9 +300,7 @@ class TestTypeIError:
 
             rejected = False
             for _ in range(max_blocks):
-                group_data = {
-                    g: rng.binomial(1, theta_0, size=block_size) for g in range(k)
-                }
+                group_data = {g: rng.binomial(1, theta_0, size=block_size) for g in range(k)}
                 result = test.update(group_data)
                 if result.reject_null:
                     rejected = True
@@ -359,15 +363,11 @@ class TestEdgeCases:
         test = KSampleSequentialTest(config)
 
         # Step 1: e_value = 1.0 (prior only, no data yet to differentiate)
-        result1 = test.update(
-            {0: np.array([0, 0, 0, 0, 0]), 1: np.array([1, 1, 1, 1, 1])}
-        )
+        result1 = test.update({0: np.array([0, 0, 0, 0, 0]), 1: np.array([1, 1, 1, 1, 1])})
         assert abs(result1.e_value - 1.0) < 1e-10
 
         # Step 2: posterior means now differ, should produce strong evidence
-        result2 = test.update(
-            {0: np.array([0, 0, 0, 0, 0]), 1: np.array([1, 1, 1, 1, 1])}
-        )
+        result2 = test.update({0: np.array([0, 0, 0, 0, 0]), 1: np.array([1, 1, 1, 1, 1])})
         assert result2.e_value > 1.0
 
     def test_single_observation_per_group(self):
@@ -379,9 +379,7 @@ class TestEdgeCases:
     def test_unbalanced_group_sizes(self):
         config = KSampleConfig(k=2)
         test = KSampleSequentialTest(config)
-        result = test.update(
-            {0: np.array([1, 0, 1, 1, 0, 1, 0, 1, 0, 1]), 1: np.array([0])}
-        )
+        result = test.update({0: np.array([1, 0, 1, 1, 0, 1, 0, 1, 0, 1]), 1: np.array([0])})
         assert isinstance(result, KSampleStepResult)
         assert result.group_counts[0] == 10
         assert result.group_counts[1] == 1
@@ -413,6 +411,7 @@ class TestEdgeCases:
         test = KSampleSequentialTest(config)
         with pytest.raises(ValueError, match="no observations"):
             test.update({0: np.array([]), 1: np.array([1])})
+
 
 class TestNumericalStability:
     def test_10000_blocks_no_overflow(self):
@@ -477,9 +476,7 @@ class TestBettingStrategies:
     )
     def test_strategy_produces_valid_results(self, strategy):
         rng = np.random.default_rng(42)
-        config = KSampleConfig(
-            k=2, betting_strategy=strategy, conservative_lambda=0.5, gamma=0.18
-        )
+        config = KSampleConfig(k=2, betting_strategy=strategy, conservative_lambda=0.5, gamma=0.18)
         test = KSampleSequentialTest(config)
 
         for _ in range(20):
@@ -498,9 +495,7 @@ class TestIntegration:
         test = KSampleSequentialTest(config)
 
         for _ in range(5):
-            test.update(
-                {0: rng.binomial(1, 0.5, size=3), 1: rng.binomial(1, 0.5, size=3)}
-            )
+            test.update({0: rng.binomial(1, 0.5, size=3), 1: rng.binomial(1, 0.5, size=3)})
 
         df = test.get_history_df()
         assert len(df) == 5
@@ -527,9 +522,7 @@ class TestIntegration:
         test = KSampleSequentialTest(config)
 
         for _ in range(10):
-            test.update(
-                {0: rng.binomial(1, 0.5, size=5), 1: rng.binomial(1, 0.5, size=5)}
-            )
+            test.update({0: rng.binomial(1, 0.5, size=5), 1: rng.binomial(1, 0.5, size=5)})
         assert test.block_count == 10
 
         test.reset()
@@ -544,10 +537,10 @@ class TestIntegration:
         config = KSampleConfig(k=2)
         test = KSampleSequentialTest(config)
 
-        result = test.update_single(0, 1) # First observation for group 0 should not trigger
+        result = test.update_single(0, 1)  # First observation for group 0 should not trigger
         assert result is None
 
-        result = test.update_single(1, 0) # First observation for group 1 should trigger
+        result = test.update_single(1, 0)  # First observation for group 1 should trigger
         assert isinstance(result, KSampleStepResult)
         assert result.step == 1
 
@@ -557,9 +550,7 @@ class TestIntegration:
         test = KSampleSequentialTest(config)
 
         for _ in range(5):
-            test.update(
-                {0: rng.binomial(1, 0.5, size=3), 1: rng.binomial(1, 0.5, size=3)}
-            )
+            test.update({0: rng.binomial(1, 0.5, size=3), 1: rng.binomial(1, 0.5, size=3)})
 
         summary = test.get_summary()
         assert summary["k"] == 2
@@ -573,6 +564,7 @@ class TestIntegration:
         result = test.update({0: np.array([1, 0]), 1: np.array([0, 1])})
         with pytest.raises(Exception):
             result.e_value = 999.0
+
 
 class TestCalibratorIntegration:
     def test_p_value_matches_calibrator(self):

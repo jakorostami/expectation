@@ -16,13 +16,13 @@ References:
 import numpy as np
 import pytest
 
+from expectation.modules.adjusters import LookbackAdjuster, SqrtAdjuster
 from expectation.par_seqtest import (
     AdjusterType,
     CombinerStrategy,
     ParallelSequentialTest,
     ParallelTestConfig,
 )
-from expectation.modules.adjusters import LookbackAdjuster, SqrtAdjuster
 
 TOLERANCE = 1e-13
 
@@ -79,9 +79,7 @@ class TestMaxLogMAccessor:
             obs = rng.normal(0.0, 1.0, size=20)
             pst.step(obs)
             current = pst.max_log_m().copy()
-            assert np.all(current >= prev - 1e-15), (
-                "max_log_m decreased!"
-            )
+            assert np.all(current >= prev - 1e-15), "max_log_m decreased!"
             prev = current
 
     def test_matches_manual_tracking(self):
@@ -159,16 +157,13 @@ class TestGoldenCrossValidation:
 
         # Python manual result
         max_log = pst.max_log_m()
-        py_rejected, py_n = self._manual_adjusted_e_bh(
-            max_log, 0.05, LookbackAdjuster
-        )
+        py_rejected, py_n = self._manual_adjusted_e_bh(max_log, 0.05, LookbackAdjuster)
 
-        assert rust_result.n_rejected == py_n, (
-            f"Rust: {rust_result.n_rejected}, Python: {py_n}"
-        )
+        assert rust_result.n_rejected == py_n, f"Rust: {rust_result.n_rejected}, Python: {py_n}"
         np.testing.assert_array_equal(
-            rust_result.rejected, py_rejected,
-            err_msg="Rejection patterns differ between Rust and Python"
+            rust_result.rejected,
+            py_rejected,
+            err_msg="Rejection patterns differ between Rust and Python",
         )
 
     def test_sqrt_cross_validate(self):
@@ -185,9 +180,7 @@ class TestGoldenCrossValidation:
 
         rust_result = pst.adjusted_e_bh(adjuster="sqrt")
         max_log = pst.max_log_m()
-        py_rejected, py_n = self._manual_adjusted_e_bh(
-            max_log, 0.05, SqrtAdjuster
-        )
+        py_rejected, py_n = self._manual_adjusted_e_bh(max_log, 0.05, SqrtAdjuster)
 
         assert rust_result.n_rejected == py_n
         np.testing.assert_array_equal(rust_result.rejected, py_rejected)
@@ -236,9 +229,7 @@ class TestCarefreeProperty:
 
             result = pst.adjusted_e_bh(adjuster="sqrt")
             current = result.rejected
-            assert np.all(current[prev_rejected]), (
-                f"Rejection lost at step {t + 1}!"
-            )
+            assert np.all(current[prev_rejected]), f"Rejection lost at step {t + 1}!"
             prev_rejected = current.copy()
 
     def test_adjusted_e_bonferroni_monotone(self):
@@ -254,9 +245,9 @@ class TestCarefreeProperty:
             pst.step(obs)
 
             result = pst.adjusted_e_bonferroni(adjuster="lookback")
-            assert result.n_rejected >= prev_n, (
-                f"Bonferroni rejections decreased: {prev_n} -> {result.n_rejected}"
-            )
+            assert (
+                result.n_rejected >= prev_n
+            ), f"Bonferroni rejections decreased: {prev_n} -> {result.n_rejected}"
             prev_n = result.n_rejected
 
     def test_adjusted_e_holm_monotone(self):
@@ -273,9 +264,7 @@ class TestCarefreeProperty:
 
             result = pst.adjusted_e_holm(adjuster="sqrt")
             current = result.rejected
-            assert np.all(current[prev_rejected]), (
-                f"Holm rejection lost at step {t + 1}!"
-            )
+            assert np.all(current[prev_rejected]), f"Holm rejection lost at step {t + 1}!"
             prev_rejected = current.copy()
 
 
@@ -354,9 +343,7 @@ class TestFDRSupMonteCarlo:
 
         # Average of sup FDR across simulations
         avg_sup_fdr = np.mean(max_fdrs)
-        assert avg_sup_fdr <= alpha + 0.02, (
-            f"FDR-sup = {avg_sup_fdr:.4f}, exceeds alpha={alpha}"
-        )
+        assert avg_sup_fdr <= alpha + 0.02, f"FDR-sup = {avg_sup_fdr:.4f}, exceeds alpha={alpha}"
 
     def test_fdr_sup_sqrt(self):
         """Monte Carlo: FDR-sup <= alpha under all-null with sqrt adjuster."""
@@ -383,9 +370,7 @@ class TestFDRSupMonteCarlo:
             max_fdrs.append(max_fdr)
 
         avg_sup_fdr = np.mean(max_fdrs)
-        assert avg_sup_fdr <= alpha + 0.02, (
-            f"FDR-sup = {avg_sup_fdr:.4f}, exceeds alpha={alpha}"
-        )
+        assert avg_sup_fdr <= alpha + 0.02, f"FDR-sup = {avg_sup_fdr:.4f}, exceeds alpha={alpha}"
 
 
 # ---------------------------------------------------------------------------

@@ -6,13 +6,14 @@
 # Use of this code for AI/ML model training is strictly prohibited.
 # See LICENSE for full terms.
 
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from typing import Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional, Union, Tuple
-import plotly.io as pio
 import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+from plotly.subplots import make_subplots
 
 pio.templates.default = "plotly_white"
 
@@ -20,16 +21,16 @@ pio.templates.default = "plotly_white"
 # Warm charcoal + gold palette from the e-values educational companion.
 # Mirrors the CSS custom properties in ~/e-values/index.html exactly.
 _EVIDENCE_COLORS = {
-    'e_value': '#d4b455',        # --gold        (primary accent)
-    'cumulative': '#5ab09e',     # --teal        (confidence / cumulative)
-    'e_power': '#f0d464',        # --gold-bright (highlights)
-    'p_value': '#9a7aba',        # --violet
-    'observations': '#6a9ac4',   # --blue
-    'background': '#060504',     # --bg          (near-black warm charcoal)
-    'grid': 'rgba(201,168,76,.1)',
-    'threshold': '#b84430',      # --red
-    'reference': '#a89460',      # --gold-dim    (secondary text)
-    'summary': '#ddd0a8',        # --gold-pale
+    "e_value": "#d4b455",  # --gold        (primary accent)
+    "cumulative": "#5ab09e",  # --teal        (confidence / cumulative)
+    "e_power": "#f0d464",  # --gold-bright (highlights)
+    "p_value": "#9a7aba",  # --violet
+    "observations": "#6a9ac4",  # --blue
+    "background": "#060504",  # --bg          (near-black warm charcoal)
+    "grid": "rgba(201,168,76,.1)",
+    "threshold": "#b84430",  # --red
+    "reference": "#a89460",  # --gold-dim    (secondary text)
+    "summary": "#ddd0a8",  # --gold-pale
 }
 # Three-font system matching ~/e-values/index.html:
 #   Cinzel             — titles, headings (classical display serif)
@@ -39,23 +40,23 @@ _EVIDENCE_TITLE_FONT = "Cinzel, serif"
 _EVIDENCE_LABEL_FONT = "EB Garamond, serif"
 _EVIDENCE_BODY_FONT = "Cormorant Garamond, serif"
 _EVIDENCE_FONT = _EVIDENCE_BODY_FONT  # backward-compatible alias
-_EVIDENCE_PAPER = '#0d0a07'      # --bg-warm
+_EVIDENCE_PAPER = "#0d0a07"  # --bg-warm
 
 
 def plot_sequential_test_plotly(
-    history_df: pd.DataFrame, 
-    alpha: float = 0.05, 
+    history_df: pd.DataFrame,
+    alpha: float = 0.05,
     theme: str = "apple",
     log_scale: bool = False,
-    #title: str = "Sequential Test Analysis",
+    # title: str = "Sequential Test Analysis",
     height: int = 1200,
     width: int = 1000,
     show_epower: bool = True,
-    show_pvalue: bool = True
+    show_pvalue: bool = True,
 ) -> go.Figure:
     """
     Create an interactive, aesthetically pleasing visualization of sequential test results using Plotly.
-    
+
     Parameters:
     -----------
     history_df : pd.DataFrame
@@ -82,7 +83,7 @@ def plot_sequential_test_plotly(
         Whether to show e-power plot if available
     show_pvalue : bool
         Whether to show p-value plot if available
-        
+
     Returns:
     --------
     fig : plotly.graph_objects.Figure
@@ -94,346 +95,363 @@ def plot_sequential_test_plotly(
         font_family = _EVIDENCE_BODY_FONT
         title_font_family = _EVIDENCE_TITLE_FONT
         label_font_family = _EVIDENCE_LABEL_FONT
-        plot_bgcolor = colors['background']
+        plot_bgcolor = colors["background"]
         paper_bgcolor = _EVIDENCE_PAPER
 
     elif theme == "apple":
         colors = {
-            'e_value': '#007AFF',       # iOS blue
-            'cumulative': '#34C759',    # iOS green
-            'e_power': '#FF9500',       # iOS orange
-            'p_value': '#AF52DE',       # iOS purple
-            'observations': '#FF2D55',  # iOS pink
-            'background': '#F5F5F7',    # Apple light gray
-            'grid': '#E5E5EA',          # iOS light gray
-            'threshold': '#FF3B30',     # iOS red
-            'reference': '#8E8E93'      # iOS gray
+            "e_value": "#007AFF",  # iOS blue
+            "cumulative": "#34C759",  # iOS green
+            "e_power": "#FF9500",  # iOS orange
+            "p_value": "#AF52DE",  # iOS purple
+            "observations": "#FF2D55",  # iOS pink
+            "background": "#F5F5F7",  # Apple light gray
+            "grid": "#E5E5EA",  # iOS light gray
+            "threshold": "#FF3B30",  # iOS red
+            "reference": "#8E8E93",  # iOS gray
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        plot_bgcolor = colors['background']
-        paper_bgcolor = '#FFFFFF'
+        plot_bgcolor = colors["background"]
+        paper_bgcolor = "#FFFFFF"
 
     elif theme == "dark":
         colors = {
-            'e_value': '#0A84FF',       # iOS blue (dark mode)
-            'cumulative': '#30D158',    # iOS green (dark mode)
-            'e_power': '#FF9F0A',       # iOS orange (dark mode)
-            'p_value': '#BF5AF2',       # iOS purple (dark mode)
-            'observations': '#FF375F',  # iOS pink (dark mode)
-            'background': '#1C1C1E',    # iOS dark background
-            'grid': '#38383A',          # iOS dark gray
-            'threshold': '#FF453A',     # iOS red (dark mode)
-            'reference': '#98989D'      # iOS gray (dark mode)
+            "e_value": "#0A84FF",  # iOS blue (dark mode)
+            "cumulative": "#30D158",  # iOS green (dark mode)
+            "e_power": "#FF9F0A",  # iOS orange (dark mode)
+            "p_value": "#BF5AF2",  # iOS purple (dark mode)
+            "observations": "#FF375F",  # iOS pink (dark mode)
+            "background": "#1C1C1E",  # iOS dark background
+            "grid": "#38383A",  # iOS dark gray
+            "threshold": "#FF453A",  # iOS red (dark mode)
+            "reference": "#98989D",  # iOS gray (dark mode)
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        plot_bgcolor = colors['background']
-        paper_bgcolor = '#000000'
+        plot_bgcolor = colors["background"]
+        paper_bgcolor = "#000000"
 
     else:  # light
         colors = {
-            'e_value': '#1E88E5',
-            'cumulative': '#28A745',
-            'e_power': '#FD7E14',
-            'p_value': '#6F42C1',
-            'observations': '#E83E8C',
-            'background': '#FFFFFF',
-            'grid': '#E9ECEF',
-            'threshold': '#DC3545',
-            'reference': '#6C757D'
+            "e_value": "#1E88E5",
+            "cumulative": "#28A745",
+            "e_power": "#FD7E14",
+            "p_value": "#6F42C1",
+            "observations": "#E83E8C",
+            "background": "#FFFFFF",
+            "grid": "#E9ECEF",
+            "threshold": "#DC3545",
+            "reference": "#6C757D",
         }
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        plot_bgcolor = colors['background']
-        paper_bgcolor = '#FFFFFF'
-    
-    has_epower = 'e_power' in history_df.columns and show_epower
-    has_pvalue = 'p_value' in history_df.columns and show_pvalue
-    
+        plot_bgcolor = colors["background"]
+        paper_bgcolor = "#FFFFFF"
+
+    has_epower = "e_power" in history_df.columns and show_epower
+    has_pvalue = "p_value" in history_df.columns and show_pvalue
+
     num_rows = 3  # e-values, cumulative e-values, observations are always included
     if has_epower:
         num_rows += 1
     if has_pvalue:
         num_rows += 1
-    
+
     fig = make_subplots(
-        rows=num_rows, 
+        rows=num_rows,
         cols=1,
         subplot_titles=[
-            'Individual E-values',
-            'Cumulative E-values (E-Process)',
-            *((['E-power (growth rate)'] if has_epower else []) +
-              (['p-values (converted from e-values)'] if has_pvalue else []) +
-              ['Raw Observations'])
+            "Individual E-values",
+            "Cumulative E-values (E-Process)",
+            *(
+                (["E-power (growth rate)"] if has_epower else [])
+                + (["p-values (converted from e-values)"] if has_pvalue else [])
+                + ["Raw Observations"]
+            ),
         ],
-        vertical_spacing=0.08
+        vertical_spacing=0.08,
     )
-    
+
     fig.update_layout(
         title={
-            'text': "",
-            'font': {
-                'family': title_font_family,
-                'size': 24,
-                'color': '#d4b455' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'
+            "text": "",
+            "font": {
+                "family": title_font_family,
+                "size": 24,
+                "color": (
+                    "#d4b455"
+                    if theme == "evidence"
+                    else "#FFFFFF" if theme == "dark" else "#000000"
+                ),
             },
-            'y': 0.98,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'
+            "y": 0.98,
+            "x": 0.5,
+            "xanchor": "center",
+            "yanchor": "top",
         },
         height=height,
         width=width,
         plot_bgcolor=plot_bgcolor,
         paper_bgcolor=paper_bgcolor,
         font={
-            'family': font_family,
-            'color': '#a89460' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'
+            "family": font_family,
+            "color": (
+                "#a89460" if theme == "evidence" else "#FFFFFF" if theme == "dark" else "#000000"
+            ),
         },
-        hovermode='closest',
+        hovermode="closest",
         showlegend=True,
         legend={
-            'orientation': 'h',
-            'yanchor': 'bottom',
-            'y': 1.02,
-            'xanchor': 'right',
-            'x': 1,
-            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(40, 40, 45, 0.85)' if theme == 'dark' else 'rgba(255, 255, 255, 0.8)',
-            'font': {'color': '#a89460' if theme == 'evidence' else '#FFFFFF' if theme == 'dark' else '#000000'}
-        }
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "bgcolor": (
+                "rgba(13, 10, 7, 0.85)"
+                if theme == "evidence"
+                else "rgba(40, 40, 45, 0.85)" if theme == "dark" else "rgba(255, 255, 255, 0.8)"
+            ),
+            "font": {
+                "color": (
+                    "#a89460"
+                    if theme == "evidence"
+                    else "#FFFFFF" if theme == "dark" else "#000000"
+                )
+            },
+        },
     )
-    
-    base_hover_template = '<b>Step %{x}</b><br>%{y:.4f}<extra></extra>'
+
+    base_hover_template = "<b>Step %{x}</b><br>%{y:.4f}<extra></extra>"
     current_row = 1
-    
+
     # 1. Individual E-values plot
     fig.add_trace(
         go.Scatter(
-            x=history_df['step'],
-            y=history_df['e_value'],
-            mode='lines+markers',
-            name='E-value',
-            line={'color': colors['e_value'], 'width': 2, 'shape': 'spline'},
+            x=history_df["step"],
+            y=history_df["e_value"],
+            mode="lines+markers",
+            name="E-value",
+            line={"color": colors["e_value"], "width": 2, "shape": "spline"},
             marker={
-                'color': colors['e_value'],
-                'size': 8,
-                'line': {'color': 'white', 'width': 1},
-                'opacity': 0.8
+                "color": colors["e_value"],
+                "size": 8,
+                "line": {"color": "white", "width": 1},
+                "opacity": 0.8,
             },
             hovertemplate=base_hover_template,
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     # Add reference line at y=1
     fig.add_trace(
         go.Scatter(
-            x=[history_df['step'].min(), history_df['step'].max()],
+            x=[history_df["step"].min(), history_df["step"].max()],
             y=[1, 1],
-            mode='lines',
-            line={'color': colors['reference'], 'width': 1, 'dash': 'dash'},
-            name='E-value = 1',
-            hoverinfo='skip',
-            showlegend=False
+            mode="lines",
+            line={"color": colors["reference"], "width": 1, "dash": "dash"},
+            name="E-value = 1",
+            hoverinfo="skip",
+            showlegend=False,
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     # Set y-axis to log scale if requested
     if log_scale:
-        fig.update_yaxes(type='log', row=current_row, col=1)
-    
+        fig.update_yaxes(type="log", row=current_row, col=1)
+
     current_row += 1
-    
+
     # 2. Cumulative E-values plot
     fig.add_trace(
         go.Scatter(
-            x=history_df['step'],
-            y=history_df['cumulative_e_value'],
-            mode='lines+markers',
-            name='Cumulative E-value',
-            line={'color': colors['cumulative'], 'width': 2, 'shape': 'spline'},
+            x=history_df["step"],
+            y=history_df["cumulative_e_value"],
+            mode="lines+markers",
+            name="Cumulative E-value",
+            line={"color": colors["cumulative"], "width": 2, "shape": "spline"},
             marker={
-                'color': colors['cumulative'],
-                'size': 8,
-                'line': {'color': 'white', 'width': 1},
-                'opacity': 0.8
+                "color": colors["cumulative"],
+                "size": 8,
+                "line": {"color": "white", "width": 1},
+                "opacity": 0.8,
             },
             hovertemplate=base_hover_template,
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     # Add threshold line
     fig.add_trace(
         go.Scatter(
-            x=[history_df['step'].min(), history_df['step'].max()],
-            y=[1/alpha, 1/alpha],
-            mode='lines',
-            line={'color': colors['threshold'], 'width': 2, 'dash': 'dash'},
-            name=f'Rejection Boundary (1/α = {1/alpha:.1f})',
-            hoverinfo='skip'
+            x=[history_df["step"].min(), history_df["step"].max()],
+            y=[1 / alpha, 1 / alpha],
+            mode="lines",
+            line={"color": colors["threshold"], "width": 2, "dash": "dash"},
+            name=f"Rejection Boundary (1/α = {1/alpha:.1f})",
+            hoverinfo="skip",
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     if log_scale:
-        fig.update_yaxes(type='log', row=current_row, col=1)
-    
+        fig.update_yaxes(type="log", row=current_row, col=1)
+
     current_row += 1
-    
+
     # 3. E-power plot (if available)
     if has_epower:
         fig.add_trace(
             go.Scatter(
-                x=history_df['step'],
-                y=100 * history_df['e_power'].fillna(0),
-                mode='lines+markers',
-                name='E-power',
-                line={'color': colors['e_power'], 'width': 2, 'shape': 'spline'},
+                x=history_df["step"],
+                y=100 * history_df["e_power"].fillna(0),
+                mode="lines+markers",
+                name="E-power",
+                line={"color": colors["e_power"], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors['e_power'],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors["e_power"],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>",
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
-        
-        fig.update_yaxes(
-            ticksuffix='%',
-            row=current_row, col=1
-        )
-        
+
+        fig.update_yaxes(ticksuffix="%", row=current_row, col=1)
+
         current_row += 1
-    
+
     # 4. p-value plot (if available)
     if has_pvalue:
         fig.add_trace(
             go.Scatter(
-                x=history_df['step'],
-                y=100 * history_df['p_value'],
-                mode='lines+markers',
-                name='p-value',
-                line={'color': colors['p_value'], 'width': 2, 'shape': 'spline'},
+                x=history_df["step"],
+                y=100 * history_df["p_value"],
+                mode="lines+markers",
+                name="p-value",
+                line={"color": colors["p_value"], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors['p_value'],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors["p_value"],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>",
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
-        
+
         fig.add_trace(
             go.Scatter(
-                x=[history_df['step'].min(), history_df['step'].max()],
+                x=[history_df["step"].min(), history_df["step"].max()],
                 y=[alpha * 100, alpha * 100],
-                mode='lines',
-                line={'color': colors['threshold'], 'width': 2, 'dash': 'dash'},
-                name=f'Rejection Boundary (α = {alpha:.2f})',
-                hoverinfo='skip'
+                mode="lines",
+                line={"color": colors["threshold"], "width": 2, "dash": "dash"},
+                name=f"Rejection Boundary (α = {alpha:.2f})",
+                hoverinfo="skip",
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
-        
-        fig.update_yaxes(
-            ticksuffix='%',
-            range=[-5, 100],
-            row=current_row, col=1
-        )
-        
+
+        fig.update_yaxes(ticksuffix="%", range=[-5, 100], row=current_row, col=1)
+
         current_row += 1
-    
+
     # 5. Raw observations plot
-    observations = np.concatenate(history_df['observations'].values)
-    steps = np.repeat(history_df['step'], history_df['observations'].apply(len))
-    
+    observations = np.concatenate(history_df["observations"].values)
+    steps = np.repeat(history_df["step"], history_df["observations"].apply(len))
+
     fig.add_trace(
         go.Scatter(
             x=steps,
             y=observations,
-            mode='markers',
-            name='Observations',
+            mode="markers",
+            name="Observations",
             marker={
-                'color': colors['observations'],
-                'size': 10,
-                'line': {'color': 'white', 'width': 1},
-                'opacity': 0.8,
-                'symbol': 'circle'
+                "color": colors["observations"],
+                "size": 10,
+                "line": {"color": "white", "width": 1},
+                "opacity": 0.8,
+                "symbol": "circle",
             },
-            hovertemplate='<b>Step %{x}</b><br>Value: %{y:.4f}<extra></extra>',
+            hovertemplate="<b>Step %{x}</b><br>Value: %{y:.4f}<extra></extra>",
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     fig.update_xaxes(
-        title={'text': 'Step', 'font': {'size': 14, 'family': font_family}},
+        title={"text": "Step", "font": {"size": 14, "family": font_family}},
         showgrid=True,
-        gridcolor=colors['grid'],
+        gridcolor=colors["grid"],
         gridwidth=1,
         zeroline=False,
         showline=True,
-        linecolor=colors['grid'],
+        linecolor=colors["grid"],
         linewidth=1,
-        mirror=True
+        mirror=True,
     )
-    
+
     fig.update_yaxes(
         showgrid=True,
-        gridcolor=colors['grid'],
+        gridcolor=colors["grid"],
         gridwidth=1,
         zeroline=False,
         showline=True,
-        linecolor=colors['grid'],
+        linecolor=colors["grid"],
         linewidth=1,
-        mirror=True
+        mirror=True,
     )
-    
-    fig.update_yaxes(title_text='E-value', row=1, col=1)
-    fig.update_yaxes(title_text='Cumulative E-value', row=2, col=1)
-    
+
+    fig.update_yaxes(title_text="E-value", row=1, col=1)
+    fig.update_yaxes(title_text="Cumulative E-value", row=2, col=1)
+
     current_row = 3
     if has_epower:
-        fig.update_yaxes(title_text='E-power (%)', row=current_row, col=1)
+        fig.update_yaxes(title_text="E-power (%)", row=current_row, col=1)
         current_row += 1
     if has_pvalue:
-        fig.update_yaxes(title_text='p-value (%)', row=current_row, col=1)
+        fig.update_yaxes(title_text="p-value (%)", row=current_row, col=1)
         current_row += 1
-    fig.update_yaxes(title_text='Value', row=current_row, col=1)
-    
-    # Apply per-role fonts: subplot titles (annotations) and axis labels
-    fig.update_annotations(font={'family': label_font_family})
-    fig.update_xaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
-    fig.update_yaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
+    fig.update_yaxes(title_text="Value", row=current_row, col=1)
 
-    if theme == 'evidence':
+    # Apply per-role fonts: subplot titles (annotations) and axis labels
+    fig.update_annotations(font={"family": label_font_family})
+    fig.update_xaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
+    fig.update_yaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
+
+    if theme == "evidence":
         fig.update_layout(
             hoverlabel={
-                'bgcolor': '#0d0a07',
-                'font_size': 12,
-                'font_family': label_font_family,
-                'font_color': '#ddd0a8',
-                'bordercolor': 'rgba(201,168,76,.25)',
+                "bgcolor": "#0d0a07",
+                "font_size": 12,
+                "font_family": label_font_family,
+                "font_color": "#ddd0a8",
+                "bordercolor": "rgba(201,168,76,.25)",
             }
         )
     else:
         fig.update_layout(
-            hoverlabel={
-                'bgcolor': 'white',
-                'font_size': 12,
-                'font_family': font_family
-            }
+            hoverlabel={"bgcolor": "white", "font_size": 12, "font_family": font_family}
         )
 
     return fig
@@ -447,11 +465,11 @@ def plot_sequential_comparison_plotly(
     log_scale: bool = False,
     title: str = "Sequential Tests Comparison",
     height: int = 1200,
-    width: int = 1000
+    width: int = 1000,
 ) -> go.Figure:
     """
     Create an interactive comparison of multiple sequential tests using Plotly.
-    
+
     Parameters:
     -----------
     history_dfs : List[pd.DataFrame]
@@ -470,7 +488,7 @@ def plot_sequential_comparison_plotly(
         Figure height in pixels
     width : int
         Figure width in pixels
-        
+
     Returns:
     --------
     fig : plotly.graph_objects.Figure
@@ -479,75 +497,75 @@ def plot_sequential_comparison_plotly(
 
     if theme == "evidence":
         colors = [
-            '#d4b455',  # --gold
-            '#5ab09e',  # --teal
-            '#f0d464',  # --gold-bright
-            '#9a7aba',  # --violet
-            '#6a9ac4',  # --blue
-            '#ddd0a8',  # --gold-pale
-            '#4a8a7a',  # --teal-dim
+            "#d4b455",  # --gold
+            "#5ab09e",  # --teal
+            "#f0d464",  # --gold-bright
+            "#9a7aba",  # --violet
+            "#6a9ac4",  # --blue
+            "#ddd0a8",  # --gold-pale
+            "#4a8a7a",  # --teal-dim
         ]
-        background_color = _EVIDENCE_COLORS['background']
-        grid_color = 'rgba(201,168,76,.1)'
-        threshold_color = '#b84430'
+        background_color = _EVIDENCE_COLORS["background"]
+        grid_color = "rgba(201,168,76,.1)"
+        threshold_color = "#b84430"
         font_family = _EVIDENCE_BODY_FONT
         title_font_family = _EVIDENCE_TITLE_FONT
         label_font_family = _EVIDENCE_LABEL_FONT
-        text_color = '#a89460'
+        text_color = "#a89460"
         paper_bgcolor = _EVIDENCE_PAPER
 
     elif theme == "apple":
         colors = [
-            '#007AFF',  # iOS blue
-            '#34C759',  # iOS green
-            '#FF9500',  # iOS orange
-            '#AF52DE',  # iOS purple
-            '#FF2D55',  # iOS pink
-            '#5AC8FA',  # iOS light blue
-            '#4CD964',  # iOS light green
+            "#007AFF",  # iOS blue
+            "#34C759",  # iOS green
+            "#FF9500",  # iOS orange
+            "#AF52DE",  # iOS purple
+            "#FF2D55",  # iOS pink
+            "#5AC8FA",  # iOS light blue
+            "#4CD964",  # iOS light green
         ]
-        background_color = '#F5F5F7'
-        grid_color = '#E5E5EA'
-        threshold_color = '#FF3B30'
+        background_color = "#F5F5F7"
+        grid_color = "#E5E5EA"
+        threshold_color = "#FF3B30"
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        text_color = '#000000'
-        paper_bgcolor = '#FFFFFF'
+        text_color = "#000000"
+        paper_bgcolor = "#FFFFFF"
 
     elif theme == "dark":
         colors = [
-            '#0A84FF',  # iOS blue (dark mode)
-            '#30D158',  # iOS green (dark mode)
-            '#FF9F0A',  # iOS orange (dark mode)
-            '#BF5AF2',  # iOS purple (dark mode)
-            '#FF375F',  # iOS pink (dark mode)
-            '#64D2FF',  # iOS light blue (dark mode)
-            '#30DB5B',  # iOS light green (dark mode)
+            "#0A84FF",  # iOS blue (dark mode)
+            "#30D158",  # iOS green (dark mode)
+            "#FF9F0A",  # iOS orange (dark mode)
+            "#BF5AF2",  # iOS purple (dark mode)
+            "#FF375F",  # iOS pink (dark mode)
+            "#64D2FF",  # iOS light blue (dark mode)
+            "#30DB5B",  # iOS light green (dark mode)
         ]
-        background_color = '#1C1C1E'
-        grid_color = '#38383A'
-        threshold_color = '#FF453A'
+        background_color = "#1C1C1E"
+        grid_color = "#38383A"
+        threshold_color = "#FF453A"
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        text_color = '#FFFFFF'
-        paper_bgcolor = '#000000'
+        text_color = "#FFFFFF"
+        paper_bgcolor = "#000000"
 
     else:  # light
         colors = px.colors.qualitative.Plotly
-        background_color = '#FFFFFF'
-        grid_color = '#E9ECEF'
-        threshold_color = '#DC3545'
+        background_color = "#FFFFFF"
+        grid_color = "#E9ECEF"
+        threshold_color = "#DC3545"
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
-        text_color = '#000000'
-        paper_bgcolor = '#FFFFFF'
-    
-    has_epower = all('e_power' in df.columns for df in history_dfs)
-    has_pvalue = all('p_value' in df.columns for df in history_dfs)
-    
+        text_color = "#000000"
+        paper_bgcolor = "#FFFFFF"
+
+    has_epower = all("e_power" in df.columns for df in history_dfs)
+    has_pvalue = all("p_value" in df.columns for df in history_dfs)
+
     num_rows = 3  # e-values, cumulative e-values, observations distribution are always included
     if has_epower:
         num_rows += 1
@@ -555,49 +573,48 @@ def plot_sequential_comparison_plotly(
         num_rows += 1
 
     fig = make_subplots(
-        rows=num_rows, 
+        rows=num_rows,
         cols=1,
         subplot_titles=[
-            'Individual E-values',
-            'Cumulative E-values (E-Process)',
-            *((['E-power (growth rate)'] if has_epower else []) +
-              (['p-values (converted from e-values)'] if has_pvalue else []) +
-              ['Observation Distributions'])
+            "Individual E-values",
+            "Cumulative E-values (E-Process)",
+            *(
+                (["E-power (growth rate)"] if has_epower else [])
+                + (["p-values (converted from e-values)"] if has_pvalue else [])
+                + ["Observation Distributions"]
+            ),
         ],
-        vertical_spacing=0.08
+        vertical_spacing=0.08,
     )
 
     fig.update_layout(
         title={
-            'text': title,
-            'font': {
-                'family': title_font_family,
-                'size': 24,
-                'color': text_color
-            },
-            'y': 0.98,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'
+            "text": title,
+            "font": {"family": title_font_family, "size": 24, "color": text_color},
+            "y": 0.98,
+            "x": 0.5,
+            "xanchor": "center",
+            "yanchor": "top",
         },
         height=height,
         width=width,
         plot_bgcolor=background_color,
         paper_bgcolor=paper_bgcolor,
-        font={
-            'family': font_family,
-            'color': text_color
-        },
-        hovermode='x unified',
+        font={"family": font_family, "color": text_color},
+        hovermode="x unified",
         showlegend=True,
         legend={
-            'orientation': 'h',
-            'yanchor': 'bottom',
-            'y': 1.02,
-            'xanchor': 'right',
-            'x': 1,
-            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.7)' if theme == 'dark' else 'rgba(255, 255, 255, 0.7)',
-        }
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "bgcolor": (
+                "rgba(13, 10, 7, 0.85)"
+                if theme == "evidence"
+                else "rgba(0, 0, 0, 0.7)" if theme == "dark" else "rgba(255, 255, 255, 0.7)"
+            ),
+        },
     )
 
     current_row = 1
@@ -606,163 +623,169 @@ def plot_sequential_comparison_plotly(
     for i, (df, label) in enumerate(zip(history_dfs, labels)):
         fig.add_trace(
             go.Scatter(
-                x=df['step'],
-                y=df['e_value'],
-                mode='lines+markers',
+                x=df["step"],
+                y=df["e_value"],
+                mode="lines+markers",
                 name=f"{label} - E-value",
-                line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
+                line={"color": colors[i % len(colors)], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors[i % len(colors)],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors[i % len(colors)],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>%{y:.4f}<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>%{y:.4f}<extra></extra>",
                 legendgroup=label,
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
 
     fig.add_trace(
         go.Scatter(
-            x=[min(df['step'].min() for df in history_dfs), 
-               max(df['step'].max() for df in history_dfs)],
+            x=[
+                min(df["step"].min() for df in history_dfs),
+                max(df["step"].max() for df in history_dfs),
+            ],
             y=[1, 1],
-            mode='lines',
-            line={'color': grid_color, 'width': 1, 'dash': 'dash'},
-            name='E-value = 1',
-            hoverinfo='skip',
-            showlegend=False
+            mode="lines",
+            line={"color": grid_color, "width": 1, "dash": "dash"},
+            name="E-value = 1",
+            hoverinfo="skip",
+            showlegend=False,
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
 
     if log_scale:
-        fig.update_yaxes(type='log', row=current_row, col=1)
-    
+        fig.update_yaxes(type="log", row=current_row, col=1)
+
     current_row += 1
-    
+
     # 2. Cumulative E-values
     for i, (df, label) in enumerate(zip(history_dfs, labels)):
         fig.add_trace(
             go.Scatter(
-                x=df['step'],
-                y=df['cumulative_e_value'],
-                mode='lines+markers',
+                x=df["step"],
+                y=df["cumulative_e_value"],
+                mode="lines+markers",
                 name=f"{label} - Cumulative",
-                line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
+                line={"color": colors[i % len(colors)], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors[i % len(colors)],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors[i % len(colors)],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>%{y:.4f}<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>%{y:.4f}<extra></extra>",
                 legendgroup=label,
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
-    
+
     fig.add_trace(
         go.Scatter(
-            x=[min(df['step'].min() for df in history_dfs), 
-               max(df['step'].max() for df in history_dfs)],
-            y=[1/alpha, 1/alpha],
-            mode='lines',
-            line={'color': threshold_color, 'width': 2, 'dash': 'dash'},
-            name=f'Rejection Boundary (1/α = {1/alpha:.1f})',
-            hoverinfo='skip'
+            x=[
+                min(df["step"].min() for df in history_dfs),
+                max(df["step"].max() for df in history_dfs),
+            ],
+            y=[1 / alpha, 1 / alpha],
+            mode="lines",
+            line={"color": threshold_color, "width": 2, "dash": "dash"},
+            name=f"Rejection Boundary (1/α = {1/alpha:.1f})",
+            hoverinfo="skip",
         ),
-        row=current_row, col=1
+        row=current_row,
+        col=1,
     )
-    
+
     if log_scale:
-        fig.update_yaxes(type='log', row=current_row, col=1)
-    
+        fig.update_yaxes(type="log", row=current_row, col=1)
+
     current_row += 1
-    
+
     # 3. E-power (if available)
     if has_epower:
         for i, (df, label) in enumerate(zip(history_dfs, labels)):
             fig.add_trace(
                 go.Scatter(
-                    x=df['step'],
-                    y=100 * df['e_power'].fillna(0),
-                    mode='lines+markers',
+                    x=df["step"],
+                    y=100 * df["e_power"].fillna(0),
+                    mode="lines+markers",
                     name=f"{label} - E-power",
-                    line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
+                    line={"color": colors[i % len(colors)], "width": 2, "shape": "spline"},
                     marker={
-                        'color': colors[i % len(colors)],
-                        'size': 8,
-                        'line': {'color': 'white', 'width': 1},
-                        'opacity': 0.8
+                        "color": colors[i % len(colors)],
+                        "size": 8,
+                        "line": {"color": "white", "width": 1},
+                        "opacity": 0.8,
                     },
-                    hovertemplate='<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>',
+                    hovertemplate="<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>",
                     legendgroup=label,
                 ),
-                row=current_row, col=1
+                row=current_row,
+                col=1,
             )
-        
-        fig.update_yaxes(
-            ticksuffix='%',
-            row=current_row, col=1
-        )
-        
+
+        fig.update_yaxes(ticksuffix="%", row=current_row, col=1)
+
         current_row += 1
-    
+
     # 4. p-values (if available)
     if has_pvalue:
         for i, (df, label) in enumerate(zip(history_dfs, labels)):
             fig.add_trace(
                 go.Scatter(
-                    x=df['step'],
-                    y=100 * df['p_value'],
-                    mode='lines+markers',
+                    x=df["step"],
+                    y=100 * df["p_value"],
+                    mode="lines+markers",
                     name=f"{label} - p-value",
-                    line={'color': colors[i % len(colors)], 'width': 2, 'shape': 'spline'},
+                    line={"color": colors[i % len(colors)], "width": 2, "shape": "spline"},
                     marker={
-                        'color': colors[i % len(colors)],
-                        'size': 8,
-                        'line': {'color': 'white', 'width': 1},
-                        'opacity': 0.8
+                        "color": colors[i % len(colors)],
+                        "size": 8,
+                        "line": {"color": "white", "width": 1},
+                        "opacity": 0.8,
                     },
-                    hovertemplate='<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>',
+                    hovertemplate="<b>Step %{x}</b><br>%{y:.2f}%<extra></extra>",
                     legendgroup=label,
                 ),
-                row=current_row, col=1
+                row=current_row,
+                col=1,
             )
 
         fig.add_trace(
             go.Scatter(
-                x=[min(df['step'].min() for df in history_dfs), 
-                   max(df['step'].max() for df in history_dfs)],
+                x=[
+                    min(df["step"].min() for df in history_dfs),
+                    max(df["step"].max() for df in history_dfs),
+                ],
                 y=[alpha * 100, alpha * 100],
-                mode='lines',
-                line={'color': threshold_color, 'width': 2, 'dash': 'dash'},
-                name=f'Rejection Boundary (α = {alpha:.2f})',
-                hoverinfo='skip'
+                mode="lines",
+                line={"color": threshold_color, "width": 2, "dash": "dash"},
+                name=f"Rejection Boundary (α = {alpha:.2f})",
+                hoverinfo="skip",
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
 
-        fig.update_yaxes(
-            ticksuffix='%',
-            range=[-5, 100],
-            row=current_row, col=1
-        )
-        
+        fig.update_yaxes(ticksuffix="%", range=[-5, 100], row=current_row, col=1)
+
         current_row += 1
-    
+
     # 5. Observation Distributions (Box Plots)
     boxplot_data = []
     for i, (df, label) in enumerate(zip(history_dfs, labels)):
-        all_obs = np.concatenate(df['observations'].values)
-        
+        all_obs = np.concatenate(df["observations"].values)
+
         fig.add_trace(
             go.Box(
                 y=all_obs,
                 name=label,
-                boxpoints='outliers',
+                boxpoints="outliers",
                 jitter=0.3,
                 whiskerwidth=0.2,
                 fillcolor=colors[i % len(colors)],
@@ -772,18 +795,19 @@ def plot_sequential_comparison_plotly(
                 line_color=colors[i % len(colors)],
                 legendgroup=label,
                 showlegend=False,
-                hoverinfo='all',
+                hoverinfo="all",
                 hovertemplate=(
-                    f'<b>{label}</b><br>' + 
-                    'Min: %{min}<br>' +
-                    'Q1: %{q1}<br>' +
-                    'Median: %{median}<br>' +
-                    'Q3: %{q3}<br>' +
-                    'Max: %{max}<br>' +
-                    '<extra></extra>'
-                )
+                    f"<b>{label}</b><br>"
+                    + "Min: %{min}<br>"
+                    + "Q1: %{q1}<br>"
+                    + "Median: %{median}<br>"
+                    + "Q3: %{q3}<br>"
+                    + "Max: %{max}<br>"
+                    + "<extra></extra>"
+                ),
             ),
-            row=current_row, col=1
+            row=current_row,
+            col=1,
         )
 
     fig.update_xaxes(
@@ -796,7 +820,7 @@ def plot_sequential_comparison_plotly(
         linewidth=1,
         mirror=True,
     )
-    
+
     fig.update_yaxes(
         showgrid=True,
         gridcolor=grid_color,
@@ -805,50 +829,52 @@ def plot_sequential_comparison_plotly(
         showline=True,
         linecolor=grid_color,
         linewidth=1,
-        mirror=True
+        mirror=True,
     )
-    
-    fig.update_xaxes(title_text='Step', row=1, col=1)
-    fig.update_xaxes(title_text='Step', row=2, col=1)
-    if has_epower:
-        fig.update_xaxes(title_text='Step', row=3, col=1)
-    if has_pvalue:
-        fig.update_xaxes(title_text='Step', row=(3 if has_epower else 3), col=1)
-    fig.update_xaxes(title_text='Test Group', row=current_row, col=1)
-    
-    fig.update_yaxes(title_text='E-value', row=1, col=1)
-    fig.update_yaxes(title_text='Cumulative E-value', row=2, col=1)
-    if has_epower:
-        fig.update_yaxes(title_text='E-power (%)', row=3, col=1)
-    if has_pvalue:
-        fig.update_yaxes(title_text='p-value (%)', row=(3 if has_epower else 3), col=1)
-    fig.update_yaxes(title_text='Value', row=current_row, col=1)
-    
-    # Apply per-role fonts: subplot titles (annotations) and axis labels
-    fig.update_annotations(font={'family': label_font_family})
-    fig.update_xaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
-    fig.update_yaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
 
-    if theme == 'evidence':
+    fig.update_xaxes(title_text="Step", row=1, col=1)
+    fig.update_xaxes(title_text="Step", row=2, col=1)
+    if has_epower:
+        fig.update_xaxes(title_text="Step", row=3, col=1)
+    if has_pvalue:
+        fig.update_xaxes(title_text="Step", row=(3 if has_epower else 3), col=1)
+    fig.update_xaxes(title_text="Test Group", row=current_row, col=1)
+
+    fig.update_yaxes(title_text="E-value", row=1, col=1)
+    fig.update_yaxes(title_text="Cumulative E-value", row=2, col=1)
+    if has_epower:
+        fig.update_yaxes(title_text="E-power (%)", row=3, col=1)
+    if has_pvalue:
+        fig.update_yaxes(title_text="p-value (%)", row=(3 if has_epower else 3), col=1)
+    fig.update_yaxes(title_text="Value", row=current_row, col=1)
+
+    # Apply per-role fonts: subplot titles (annotations) and axis labels
+    fig.update_annotations(font={"family": label_font_family})
+    fig.update_xaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
+    fig.update_yaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
+
+    if theme == "evidence":
         fig.update_layout(
             hoverlabel={
-                'bgcolor': '#0d0a07',
-                'font_size': 12,
-                'font_family': label_font_family,
-                'font_color': '#ddd0a8',
-                'bordercolor': 'rgba(201,168,76,.25)',
+                "bgcolor": "#0d0a07",
+                "font_size": 12,
+                "font_family": label_font_family,
+                "font_color": "#ddd0a8",
+                "bordercolor": "rgba(201,168,76,.25)",
             }
         )
     else:
         fig.update_layout(
             hoverlabel={
-                'bgcolor': 'white' if theme != 'dark' else '#3A3A3C',
-                'font_size': 12,
-                'font_family': font_family,
-                'font_color': 'black' if theme != 'dark' else 'white',
-                'bordercolor': colors['grid']
+                "bgcolor": "white" if theme != "dark" else "#3A3A3C",
+                "font_size": 12,
+                "font_family": font_family,
+                "font_color": "black" if theme != "dark" else "white",
+                "bordercolor": colors["grid"],
             }
         )
 
@@ -856,17 +882,17 @@ def plot_sequential_comparison_plotly(
 
 
 def plot_combined_dashboard(
-    history_df: pd.DataFrame, 
-    alpha: float = 0.05, 
+    history_df: pd.DataFrame,
+    alpha: float = 0.05,
     theme: str = "apple",
     title: str = "Sequential Test Dashboard",
     height: int = 1200,
     width: int = 1200,
-    log_scale: bool = False
+    log_scale: bool = False,
 ) -> go.Figure:
     """
     Create a comprehensive dashboard combining all key metrics in an Apple-like design.
-    
+
     Parameters:
     -----------
     history_df : pd.DataFrame
@@ -883,7 +909,7 @@ def plot_combined_dashboard(
         Figure width in pixels
     log_scale : bool
         Whether to use logarithmic scale for e-values and cumulative e-values
-        
+
     Returns:
     --------
     fig : plotly.graph_objects.Figure
@@ -895,146 +921,156 @@ def plot_combined_dashboard(
         font_family = _EVIDENCE_BODY_FONT
         title_font_family = _EVIDENCE_TITLE_FONT
         label_font_family = _EVIDENCE_LABEL_FONT
-        text_color = '#a89460'
+        text_color = "#a89460"
         paper_bgcolor = _EVIDENCE_PAPER
-        plot_bgcolor = colors['background']
+        plot_bgcolor = colors["background"]
 
     elif theme == "apple":
         colors = {
-            'e_value': '#007AFF',       # iOS blue
-            'cumulative': '#34C759',    # iOS green
-            'e_power': '#FF9500',       # iOS orange
-            'p_value': '#AF52DE',       # iOS purple
-            'observations': '#FF2D55',  # iOS pink
-            'background': '#F5F5F7',    # Apple light gray
-            'grid': '#E5E5EA',          # iOS light gray
-            'threshold': '#FF3B30',     # iOS red
-            'reference': '#8E8E93',     # iOS gray
-            'summary': '#5856D6'        # iOS indigo
+            "e_value": "#007AFF",  # iOS blue
+            "cumulative": "#34C759",  # iOS green
+            "e_power": "#FF9500",  # iOS orange
+            "p_value": "#AF52DE",  # iOS purple
+            "observations": "#FF2D55",  # iOS pink
+            "background": "#F5F5F7",  # Apple light gray
+            "grid": "#E5E5EA",  # iOS light gray
+            "threshold": "#FF3B30",  # iOS red
+            "reference": "#8E8E93",  # iOS gray
+            "summary": "#5856D6",  # iOS indigo
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
         text_color = "#000000"
-        paper_bgcolor = '#FFFFFF'
-        plot_bgcolor = colors['background']
+        paper_bgcolor = "#FFFFFF"
+        plot_bgcolor = colors["background"]
 
     elif theme == "dark":
         colors = {
-            'e_value': '#0A84FF',       # iOS blue (dark mode)
-            'cumulative': '#30D158',    # iOS green (dark mode)
-            'e_power': '#FF9F0A',       # iOS orange (dark mode)
-            'p_value': '#BF5AF2',       # iOS purple (dark mode)
-            'observations': '#FF375F',  # iOS pink (dark mode)
-            'background': '#1C1C1E',    # iOS dark background
-            'grid': '#38383A',          # iOS dark gray
-            'threshold': '#FF453A',     # iOS red (dark mode)
-            'reference': '#98989D',     # iOS gray (dark mode)
-            'summary': '#5E5CE6'        # iOS indigo (dark mode)
+            "e_value": "#0A84FF",  # iOS blue (dark mode)
+            "cumulative": "#30D158",  # iOS green (dark mode)
+            "e_power": "#FF9F0A",  # iOS orange (dark mode)
+            "p_value": "#BF5AF2",  # iOS purple (dark mode)
+            "observations": "#FF375F",  # iOS pink (dark mode)
+            "background": "#1C1C1E",  # iOS dark background
+            "grid": "#38383A",  # iOS dark gray
+            "threshold": "#FF453A",  # iOS red (dark mode)
+            "reference": "#98989D",  # iOS gray (dark mode)
+            "summary": "#5E5CE6",  # iOS indigo (dark mode)
         }
         font_family = "SF Pro Display, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
         text_color = "#FFFFFF"
-        paper_bgcolor = '#000000'
-        plot_bgcolor = colors['background']
+        paper_bgcolor = "#000000"
+        plot_bgcolor = colors["background"]
 
     else:  # light
         colors = {
-            'e_value': '#1E88E5',
-            'cumulative': '#28A745',
-            'e_power': '#FD7E14',
-            'p_value': '#6F42C1',
-            'observations': '#E83E8C',
-            'background': '#FFFFFF',
-            'grid': '#E9ECEF',
-            'threshold': '#DC3545',
-            'reference': '#6C757D',
-            'summary': '#6610F2'
+            "e_value": "#1E88E5",
+            "cumulative": "#28A745",
+            "e_power": "#FD7E14",
+            "p_value": "#6F42C1",
+            "observations": "#E83E8C",
+            "background": "#FFFFFF",
+            "grid": "#E9ECEF",
+            "threshold": "#DC3545",
+            "reference": "#6C757D",
+            "summary": "#6610F2",
         }
         font_family = "Helvetica Neue, Helvetica, Arial, sans-serif"
         title_font_family = font_family
         label_font_family = font_family
         text_color = "#000000"
-        paper_bgcolor = '#FFFFFF'
-        plot_bgcolor = colors['background']
+        paper_bgcolor = "#FFFFFF"
+        plot_bgcolor = colors["background"]
 
-    has_epower = 'e_power' in history_df.columns
-    has_pvalue = 'p_value' in history_df.columns
-    reject_null = history_df['cumulative_e_value'].iloc[-1] >= 1/alpha if not history_df.empty else False
+    has_epower = "e_power" in history_df.columns
+    has_pvalue = "p_value" in history_df.columns
+    reject_null = (
+        history_df["cumulative_e_value"].iloc[-1] >= 1 / alpha if not history_df.empty else False
+    )
 
     fig = make_subplots(
-        rows=4, cols=3,
+        rows=4,
+        cols=3,
         specs=[
-            [{"colspan": 3, "rowspan": 1}, None, None],    # Row 1: Header & Summary (taller)
-            [{"colspan": 2}, None, {"rowspan": 2}],        # Row 2: E-values + Distribution
-            [{"colspan": 2}, None, None],                  # Row 3: Cumulative E-values
-            [{"colspan": 1}, {"colspan": 1}, {"type": "indicator"}],  # Row 4: E-power, p-value, Metrics
+            [{"colspan": 3, "rowspan": 1}, None, None],  # Row 1: Header & Summary (taller)
+            [{"colspan": 2}, None, {"rowspan": 2}],  # Row 2: E-values + Distribution
+            [{"colspan": 2}, None, None],  # Row 3: Cumulative E-values
+            [
+                {"colspan": 1},
+                {"colspan": 1},
+                {"type": "indicator"},
+            ],  # Row 4: E-power, p-value, Metrics
         ],
-        subplot_titles=["", 
-                        "E-value Process", 
-                        "Observation Distribution",
-                        "Cumulative E-values (E-Process)",
-                        "E-power" if has_epower else "", 
-                        "p-values" if has_pvalue else "",
-                        ""],  # No title for indicator
+        subplot_titles=[
+            "",
+            "E-value Process",
+            "Observation Distribution",
+            "Cumulative E-values (E-Process)",
+            "E-power" if has_epower else "",
+            "p-values" if has_pvalue else "",
+            "",
+        ],  # No title for indicator
         vertical_spacing=0.12,  # Increased spacing
-        horizontal_spacing=0.08  # Increased spacing
+        horizontal_spacing=0.08,  # Increased spacing
     )
 
     fig.update_layout(
         title={
-            'text': title,
-            'font': {
-                'family': title_font_family,
-                'size': 28,
-                'color': text_color
-            },
-            'y': 0.98,
-            'x': 0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'
+            "text": title,
+            "font": {"family": title_font_family, "size": 28, "color": text_color},
+            "y": 0.98,
+            "x": 0.5,
+            "xanchor": "center",
+            "yanchor": "top",
         },
         height=height,
         width=width,
         plot_bgcolor=plot_bgcolor,
         paper_bgcolor=paper_bgcolor,
-        font={
-            'family': font_family,
-            'color': text_color
-        },
-        hovermode='closest',
+        font={"family": font_family, "color": text_color},
+        hovermode="closest",
         showlegend=True,
         legend={
-            'orientation': 'h',
-            'yanchor': 'bottom',
-            'y': 1.02,
-            'xanchor': 'right',
-            'x': 1,
-            'bgcolor': 'rgba(13, 10, 7, 0.85)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.7)' if theme == 'dark' else 'rgba(255, 255, 255, 0.7)',
-        }
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+            "bgcolor": (
+                "rgba(13, 10, 7, 0.85)"
+                if theme == "evidence"
+                else "rgba(0, 0, 0, 0.7)" if theme == "dark" else "rgba(255, 255, 255, 0.7)"
+            ),
+        },
     )
 
-    _dark_theme = theme in ('dark', 'evidence')
-    _annot_bg = 'rgba(13, 10, 7, 0.9)' if theme == 'evidence' else 'rgba(0, 0, 0, 0.8)' if theme == 'dark' else 'rgba(255, 255, 255, 0.8)'
+    _dark_theme = theme in ("dark", "evidence")
+    _annot_bg = (
+        "rgba(13, 10, 7, 0.9)"
+        if theme == "evidence"
+        else "rgba(0, 0, 0, 0.8)" if theme == "dark" else "rgba(255, 255, 255, 0.8)"
+    )
 
     # ---- Row 1: Header with summary statistics ----
     if not history_df.empty:
-        latest_e_value = history_df['e_value'].iloc[-1]
-        cumulative_e_value = history_df['cumulative_e_value'].iloc[-1]
-        latest_p_value = history_df['p_value'].iloc[-1] if has_pvalue else None
-        latest_e_power = history_df['e_power'].iloc[-1] if has_epower else None
-        total_steps = history_df['step'].max()
-        total_observations = sum(len(obs) for obs in history_df['observations'])
+        latest_e_value = history_df["e_value"].iloc[-1]
+        cumulative_e_value = history_df["cumulative_e_value"].iloc[-1]
+        latest_p_value = history_df["p_value"].iloc[-1] if has_pvalue else None
+        latest_e_power = history_df["e_power"].iloc[-1] if has_epower else None
+        total_steps = history_df["step"].max()
+        total_observations = sum(len(obs) for obs in history_df["observations"])
 
-        mean_e_value = history_df['e_value'].mean()
-        max_e_value = history_df['e_value'].max()
-        observations_mean = np.mean(np.concatenate(history_df['observations'].values))
-        observations_std = np.std(np.concatenate(history_df['observations'].values))
+        mean_e_value = history_df["e_value"].mean()
+        max_e_value = history_df["e_value"].max()
+        observations_mean = np.mean(np.concatenate(history_df["observations"].values))
+        observations_std = np.std(np.concatenate(history_df["observations"].values))
 
         recent_steps = 10 if len(history_df) >= 10 else len(history_df)
         recent_data = history_df.tail(recent_steps)
-        recent_e_mean = recent_data['e_value'].mean()
+        recent_e_mean = recent_data["e_value"].mean()
         recent_e_trend = "↑" if recent_e_mean > mean_e_value else "↓"
 
         summary_text = f"""
@@ -1050,23 +1086,25 @@ def plot_combined_dashboard(
         <b>Max E-value:</b> {max_e_value:.4g}<br>
         <b>Recent Trend:</b> {recent_e_trend} ({recent_e_mean:.4g})<br>
         """
-        
+
         if has_pvalue:
             summary_text += f"<b>Latest p-value:</b> {latest_p_value*100:.2f}%<br>"
         if has_epower:
             summary_text += f"<b>Latest E-power:</b> {latest_e_power*100:.2f}%<br>"
-            
+
         summary_text += f"""
         <b>Mean Observation:</b> {observations_mean:.4g}<br>
         <b>Std. Deviation:</b> {observations_std:.4g}<br>
         """
-        
+
         fig.add_annotation(
             text=summary_text,
-            xref="paper", yref="paper",
-            x=0.01, y=1.02,  # Adjusted position
+            xref="paper",
+            yref="paper",
+            x=0.01,
+            y=1.02,  # Adjusted position
             showarrow=False,
-            bordercolor=colors['grid'],
+            bordercolor=colors["grid"],
             borderwidth=1,
             borderpad=10,
             bgcolor=_annot_bg,
@@ -1074,18 +1112,18 @@ def plot_combined_dashboard(
             align="left",
             font=dict(family=font_family, size=14),
             width=280,  # Fixed width
-            height=260  # Fixed height
+            height=260,  # Fixed height
         )
 
         recent_steps = 10 if len(history_df) >= 10 else len(history_df)
         recent_data = history_df.tail(recent_steps)
 
-        progress_color = colors['threshold']
-        if cumulative_e_value >= 1/alpha:
-            progress_color = colors['cumulative']  # green if significant
-        elif cumulative_e_value >= 1/(alpha * 2):
-            progress_color = colors['e_power']     # orange if close
-            
+        progress_color = colors["threshold"]
+        if cumulative_e_value >= 1 / alpha:
+            progress_color = colors["cumulative"]  # green if significant
+        elif cumulative_e_value >= 1 / (alpha * 2):
+            progress_color = colors["e_power"]  # orange if close
+
         progress_text = f"""
         <span style='font-size:20px; font-weight:bold;'>Test Progress</span><br>
         <span style='font-size:14px; color:{progress_color}; font-weight:bold;'>
@@ -1095,13 +1133,15 @@ def plot_combined_dashboard(
             Threshold: {1/alpha:.1f} ({alpha*100:.1f}%)
         </span>
         """
-        
+
         fig.add_annotation(
             text=progress_text,
-            xref="paper", yref="paper",
-            x=0.99, y=0.97,  # Adjusted position
+            xref="paper",
+            yref="paper",
+            x=0.99,
+            y=0.97,  # Adjusted position
             showarrow=False,
-            bordercolor=colors['grid'],
+            bordercolor=colors["grid"],
             borderwidth=1,
             borderpad=10,
             bgcolor=_annot_bg,
@@ -1111,154 +1151,155 @@ def plot_combined_dashboard(
             yanchor="top",
             font=dict(family=font_family, size=14),
             width=220,  # Fixed width
-            height=150  # Fixed height
+            height=150,  # Fixed height
         )
-    
+
     # ---- Row 2, Col 1-2: Main E-value Process ----
     fig.add_trace(
         go.Scatter(
-            x=history_df['step'],
-            y=history_df['e_value'],
-            mode='lines+markers',
-            name='E-value',
-            line={'color': colors['e_value'], 'width': 2, 'shape': 'spline'},
+            x=history_df["step"],
+            y=history_df["e_value"],
+            mode="lines+markers",
+            name="E-value",
+            line={"color": colors["e_value"], "width": 2, "shape": "spline"},
             marker={
-                'color': colors['e_value'],
-                'size': 8,
-                'line': {'color': 'white', 'width': 1},
-                'opacity': 0.8
+                "color": colors["e_value"],
+                "size": 8,
+                "line": {"color": "white", "width": 1},
+                "opacity": 0.8,
             },
-            hovertemplate='<b>Step %{x}</b><br>E-value: %{y:.4f}<extra></extra>',
+            hovertemplate="<b>Step %{x}</b><br>E-value: %{y:.4f}<extra></extra>",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     fig.add_trace(
         go.Scatter(
-            x=[history_df['step'].min(), history_df['step'].max()],
+            x=[history_df["step"].min(), history_df["step"].max()],
             y=[1, 1],
-            mode='lines',
-            line={'color': colors['reference'], 'width': 1, 'dash': 'dash'},
-            name='E-value = 1',
-            hoverinfo='skip',
-            showlegend=False
+            mode="lines",
+            line={"color": colors["reference"], "width": 1, "dash": "dash"},
+            name="E-value = 1",
+            hoverinfo="skip",
+            showlegend=False,
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
-    
+
     # ---- Row 2, Col 3: Observation Distribution ----
     if not history_df.empty:
-        all_observations = np.concatenate(history_df['observations'].values)
+        all_observations = np.concatenate(history_df["observations"].values)
 
         fig.add_trace(
             go.Histogram(
                 x=all_observations,
-                name='Observations',
-                marker_color=colors['observations'],
+                name="Observations",
+                marker_color=colors["observations"],
                 opacity=0.7,
                 nbinsx=30,
-                histnorm='probability density',
-                hovertemplate='Value: %{x}<br>Density: %{y:.4f}<extra></extra>'
+                histnorm="probability density",
+                hovertemplate="Value: %{x}<br>Density: %{y:.4f}<extra></extra>",
             ),
-            row=2, col=3
+            row=2,
+            col=3,
         )
-    
+
     # ---- Row 3, Col 1-2: Cumulative E-values ----
     fig.add_trace(
         go.Scatter(
-            x=history_df['step'],
-            y=history_df['cumulative_e_value'],
-            mode='lines+markers',
-            name='Cumulative E-value',
-            line={'color': colors['cumulative'], 'width': 2, 'shape': 'spline'},
+            x=history_df["step"],
+            y=history_df["cumulative_e_value"],
+            mode="lines+markers",
+            name="Cumulative E-value",
+            line={"color": colors["cumulative"], "width": 2, "shape": "spline"},
             marker={
-                'color': colors['cumulative'],
-                'size': 8,
-                'line': {'color': 'white', 'width': 1},
-                'opacity': 0.8
+                "color": colors["cumulative"],
+                "size": 8,
+                "line": {"color": "white", "width": 1},
+                "opacity": 0.8,
             },
-            hovertemplate='<b>Step %{x}</b><br>Cumulative E-value: %{y:.4f}<extra></extra>',
-            fill='tozeroy',
-            fillcolor=f'rgba({",".join(str(int(c)) for c in hex_to_rgb(colors["cumulative"]))}, 0.1)'
+            hovertemplate="<b>Step %{x}</b><br>Cumulative E-value: %{y:.4f}<extra></extra>",
+            fill="tozeroy",
+            fillcolor=f'rgba({",".join(str(int(c)) for c in hex_to_rgb(colors["cumulative"]))}, 0.1)',
         ),
-        row=3, col=1
+        row=3,
+        col=1,
     )
 
     fig.add_trace(
         go.Scatter(
-            x=[history_df['step'].min(), history_df['step'].max()],
-            y=[1/alpha, 1/alpha],
-            mode='lines',
-            line={'color': colors['threshold'], 'width': 2, 'dash': 'dash'},
-            name=f'Rejection Boundary (1/α = {1/alpha:.1f})',
-            hovertemplate=f'Threshold: {1/alpha:.4f}<extra></extra>'
+            x=[history_df["step"].min(), history_df["step"].max()],
+            y=[1 / alpha, 1 / alpha],
+            mode="lines",
+            line={"color": colors["threshold"], "width": 2, "dash": "dash"},
+            name=f"Rejection Boundary (1/α = {1/alpha:.1f})",
+            hovertemplate=f"Threshold: {1/alpha:.4f}<extra></extra>",
         ),
-        row=3, col=1
+        row=3,
+        col=1,
     )
-    
+
     # ---- Row 4, Col 1: E-power ----
     if has_epower:
         fig.add_trace(
             go.Scatter(
-                x=history_df['step'],
-                y=100 * history_df['e_power'].fillna(0),
-                mode='lines+markers',
-                name='E-power',
-                line={'color': colors['e_power'], 'width': 2, 'shape': 'spline'},
+                x=history_df["step"],
+                y=100 * history_df["e_power"].fillna(0),
+                mode="lines+markers",
+                name="E-power",
+                line={"color": colors["e_power"], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors['e_power'],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors["e_power"],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>E-power: %{y:.2f}%<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>E-power: %{y:.2f}%<extra></extra>",
             ),
-            row=4, col=1
+            row=4,
+            col=1,
         )
-        
-        fig.update_yaxes(
-            ticksuffix='%',
-            row=4, col=1
-        )
-    
+
+        fig.update_yaxes(ticksuffix="%", row=4, col=1)
+
     # ---- Row 4, Col 2: p-values ----
     if has_pvalue:
         fig.add_trace(
             go.Scatter(
-                x=history_df['step'],
-                y=100 * history_df['p_value'],
-                mode='lines+markers',
-                name='p-value',
-                line={'color': colors['p_value'], 'width': 2, 'shape': 'spline'},
+                x=history_df["step"],
+                y=100 * history_df["p_value"],
+                mode="lines+markers",
+                name="p-value",
+                line={"color": colors["p_value"], "width": 2, "shape": "spline"},
                 marker={
-                    'color': colors['p_value'],
-                    'size': 8,
-                    'line': {'color': 'white', 'width': 1},
-                    'opacity': 0.8
+                    "color": colors["p_value"],
+                    "size": 8,
+                    "line": {"color": "white", "width": 1},
+                    "opacity": 0.8,
                 },
-                hovertemplate='<b>Step %{x}</b><br>p-value: %{y:.2f}%<extra></extra>',
+                hovertemplate="<b>Step %{x}</b><br>p-value: %{y:.2f}%<extra></extra>",
             ),
-            row=4, col=2
+            row=4,
+            col=2,
         )
 
         fig.add_trace(
             go.Scatter(
-                x=[history_df['step'].min(), history_df['step'].max()],
+                x=[history_df["step"].min(), history_df["step"].max()],
                 y=[alpha * 100, alpha * 100],
-                mode='lines',
-                line={'color': colors['threshold'], 'width': 2, 'dash': 'dash'},
-                name=f'Significance Level (α = {alpha:.2f})',
-                hoverinfo='skip'
+                mode="lines",
+                line={"color": colors["threshold"], "width": 2, "dash": "dash"},
+                name=f"Significance Level (α = {alpha:.2f})",
+                hoverinfo="skip",
             ),
-            row=4, col=2
+            row=4,
+            col=2,
         )
 
-        fig.update_yaxes(
-            ticksuffix='%',
-            range=[-5, 100],
-            row=4, col=2
-        )
-    
+        fig.update_yaxes(ticksuffix="%", range=[-5, 100], row=4, col=2)
+
     # ---- Row 4, Col 3: Test Metrics ----
     if not history_df.empty:
         fig.add_annotation(
@@ -1268,8 +1309,8 @@ def plot_combined_dashboard(
             yref="paper",
             text=f"<b>Recent Trend</b>",
             showarrow=False,
-            font={'size': 16, 'color': text_color},
-            align="center"
+            font={"size": 16, "color": text_color},
+            align="center",
         )
 
         fig.add_annotation(
@@ -1279,110 +1320,134 @@ def plot_combined_dashboard(
             yref="paper",
             text=f"<b>All Mean:</b> {mean_e_value:.4g}<br><b>Recent Mean:</b> {recent_e_mean:.4g} {recent_e_trend}",
             showarrow=False,
-            font={'size': 14, 'color': text_color},
+            font={"size": 14, "color": text_color},
             align="center",
-            bgcolor='rgba(13,10,7,0.8)' if theme == 'evidence' else 'rgba(40,40,45,0.7)' if theme == 'dark' else 'rgba(255,255,255,0.7)',
-            bordercolor=colors['grid'],
+            bgcolor=(
+                "rgba(13,10,7,0.8)"
+                if theme == "evidence"
+                else "rgba(40,40,45,0.7)" if theme == "dark" else "rgba(255,255,255,0.7)"
+            ),
+            bordercolor=colors["grid"],
             borderwidth=1,
-            borderpad=4
+            borderpad=4,
         )
 
         fig.add_trace(
             go.Indicator(
                 mode="gauge+number",
-                value=min(cumulative_e_value/(1/alpha), 1) * 100,
+                value=min(cumulative_e_value / (1 / alpha), 1) * 100,
                 title={
-                    'text': "Progress to Rejection", 
-                    'font': {'size': 14, 'family': font_family}
+                    "text": "Progress to Rejection",
+                    "font": {"size": 14, "family": font_family},
                 },
                 gauge={
-                    'axis': {
-                        'range': [0, 100], 
-                        'ticksuffix': "%",
-                        'tickfont': {'size': 10}
-                    },
-                    'bar': {'color': progress_color},
-                    'bgcolor': colors['grid'],
-                    'borderwidth': 1,
-                    'bordercolor': colors['reference'],
-                    'steps': [
-                        {'range': [0, 50], 'color': 'rgba(184,68,48,0.15)' if theme == 'evidence' else 'rgba(255, 0, 0, 0.1)'},
-                        {'range': [50, 80], 'color': 'rgba(212,180,85,0.12)' if theme == 'evidence' else 'rgba(255, 165, 0, 0.1)'},
-                        {'range': [80, 100], 'color': 'rgba(90,176,158,0.15)' if theme == 'evidence' else 'rgba(0, 128, 0, 0.1)'}
+                    "axis": {"range": [0, 100], "ticksuffix": "%", "tickfont": {"size": 10}},
+                    "bar": {"color": progress_color},
+                    "bgcolor": colors["grid"],
+                    "borderwidth": 1,
+                    "bordercolor": colors["reference"],
+                    "steps": [
+                        {
+                            "range": [0, 50],
+                            "color": (
+                                "rgba(184,68,48,0.15)"
+                                if theme == "evidence"
+                                else "rgba(255, 0, 0, 0.1)"
+                            ),
+                        },
+                        {
+                            "range": [50, 80],
+                            "color": (
+                                "rgba(212,180,85,0.12)"
+                                if theme == "evidence"
+                                else "rgba(255, 165, 0, 0.1)"
+                            ),
+                        },
+                        {
+                            "range": [80, 100],
+                            "color": (
+                                "rgba(90,176,158,0.15)"
+                                if theme == "evidence"
+                                else "rgba(0, 128, 0, 0.1)"
+                            ),
+                        },
                     ],
-                    'threshold': {
-                        'line': {'color': colors['threshold'], 'width': 4},
-                        'thickness': 0.75,
-                        'value': 100
-                    }
+                    "threshold": {
+                        "line": {"color": colors["threshold"], "width": 4},
+                        "thickness": 0.75,
+                        "value": 100,
+                    },
                 },
                 number={
-                    'suffix': "%", 
-                    'font': {'size': 16, 'family': font_family},
-                    'valueformat': '.1f'  # One decimal place
-                }
+                    "suffix": "%",
+                    "font": {"size": 16, "family": font_family},
+                    "valueformat": ".1f",  # One decimal place
+                },
             ),
-            row=4, col=3
+            row=4,
+            col=3,
         )
 
     fig.update_xaxes(
         showgrid=True,
-        gridcolor=colors['grid'],
+        gridcolor=colors["grid"],
         gridwidth=1,
         zeroline=False,
         showline=True,
-        linecolor=colors['grid'],
+        linecolor=colors["grid"],
         linewidth=1,
-        mirror=True
+        mirror=True,
     )
-    
+
     fig.update_yaxes(
         showgrid=True,
-        gridcolor=colors['grid'],
+        gridcolor=colors["grid"],
         gridwidth=1,
         zeroline=False,
         showline=True,
-        linecolor=colors['grid'],
+        linecolor=colors["grid"],
         linewidth=1,
-        mirror=True
+        mirror=True,
     )
 
-    fig.update_yaxes(title_text='E-value', row=2, col=1)
-    fig.update_yaxes(title_text='Density', row=2, col=3)
-    fig.update_yaxes(title_text='Cumulative E-value', row=3, col=1)
-    
+    fig.update_yaxes(title_text="E-value", row=2, col=1)
+    fig.update_yaxes(title_text="Density", row=2, col=3)
+    fig.update_yaxes(title_text="Cumulative E-value", row=3, col=1)
+
     if has_epower:
-        fig.update_yaxes(title_text='E-power (%)', row=4, col=1)
+        fig.update_yaxes(title_text="E-power (%)", row=4, col=1)
     if has_pvalue:
-        fig.update_yaxes(title_text='p-value (%)', row=4, col=2)
+        fig.update_yaxes(title_text="p-value (%)", row=4, col=2)
 
     if log_scale:
-        fig.update_yaxes(type='log', row=2, col=1)  # E-values
-        fig.update_yaxes(type='log', row=3, col=1)  # Cumulative E-values
+        fig.update_yaxes(type="log", row=2, col=1)  # E-values
+        fig.update_yaxes(type="log", row=3, col=1)  # Cumulative E-values
 
     # Apply per-role fonts: subplot titles (annotations) and axis labels
-    fig.update_annotations(font={'family': label_font_family})
-    fig.update_xaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
-    fig.update_yaxes(title_font={'family': label_font_family},
-                     tickfont={'family': label_font_family})
+    fig.update_annotations(font={"family": label_font_family})
+    fig.update_xaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
+    fig.update_yaxes(
+        title_font={"family": label_font_family}, tickfont={"family": label_font_family}
+    )
 
-    if theme == 'evidence':
+    if theme == "evidence":
         fig.update_layout(
             hoverlabel={
-                'bgcolor': '#0d0a07',
-                'font_size': 12,
-                'font_family': label_font_family,
-                'font_color': '#ddd0a8',
-                'bordercolor': 'rgba(201,168,76,.25)',
+                "bgcolor": "#0d0a07",
+                "font_size": 12,
+                "font_family": label_font_family,
+                "font_color": "#ddd0a8",
+                "bordercolor": "rgba(201,168,76,.25)",
             }
         )
     else:
         fig.update_layout(
             hoverlabel={
-                'bgcolor': 'white' if theme != 'dark' else '#2C2C2E',
-                'font_size': 12,
-                'font_family': font_family
+                "bgcolor": "white" if theme != "dark" else "#2C2C2E",
+                "font_size": 12,
+                "font_family": font_family,
             }
         )
 
@@ -1390,26 +1455,27 @@ def plot_combined_dashboard(
 
 
 def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+
 
 # Single source of truth for the warm charcoal + gold palette, so notebooks
 # import it instead of re-declaring an `_EV` dict and `_evidence_layout`.
 EVIDENCE_PALETTE: Dict[str, str] = {
-    'gold': _EVIDENCE_COLORS['e_value'],
-    'teal': _EVIDENCE_COLORS['cumulative'],
-    'gold_bright': _EVIDENCE_COLORS['e_power'],
-    'violet': _EVIDENCE_COLORS['p_value'],
-    'blue': _EVIDENCE_COLORS['observations'],
-    'bg': _EVIDENCE_COLORS['background'],
-    'grid': _EVIDENCE_COLORS['grid'],
-    'red': _EVIDENCE_COLORS['threshold'],
-    'gold_dim': _EVIDENCE_COLORS['reference'],
-    'gold_pale': _EVIDENCE_COLORS['summary'],
-    'paper': _EVIDENCE_PAPER,
-    'title_font': _EVIDENCE_TITLE_FONT,
-    'label_font': _EVIDENCE_LABEL_FONT,
-    'body_font': _EVIDENCE_BODY_FONT,
+    "gold": _EVIDENCE_COLORS["e_value"],
+    "teal": _EVIDENCE_COLORS["cumulative"],
+    "gold_bright": _EVIDENCE_COLORS["e_power"],
+    "violet": _EVIDENCE_COLORS["p_value"],
+    "blue": _EVIDENCE_COLORS["observations"],
+    "bg": _EVIDENCE_COLORS["background"],
+    "grid": _EVIDENCE_COLORS["grid"],
+    "red": _EVIDENCE_COLORS["threshold"],
+    "gold_dim": _EVIDENCE_COLORS["reference"],
+    "gold_pale": _EVIDENCE_COLORS["summary"],
+    "paper": _EVIDENCE_PAPER,
+    "title_font": _EVIDENCE_TITLE_FONT,
+    "label_font": _EVIDENCE_LABEL_FONT,
+    "body_font": _EVIDENCE_BODY_FONT,
 }
 
 
@@ -1419,7 +1485,7 @@ def evidence_palette() -> Dict[str, str]:
 
 def apply_evidence_layout(
     fig: go.Figure,
-    title: str = '',
+    title: str = "",
     height: int = 700,
     width: int = 1000,
 ) -> go.Figure:
@@ -1445,28 +1511,51 @@ def apply_evidence_layout(
     """
     p = EVIDENCE_PALETTE
     fig.update_layout(
-        title={'text': title,
-               'font': {'family': p['title_font'], 'size': 22, 'color': p['gold']},
-               'x': 0.5, 'xanchor': 'center'},
-        height=height, width=width,
-        plot_bgcolor=p['bg'], paper_bgcolor=p['paper'],
-        font={'family': p['body_font'], 'color': p['gold_dim']},
-        hovermode='x unified',
-        legend={'bgcolor': 'rgba(13,10,7,0.85)',
-                'font': {'family': p['label_font'], 'color': p['gold_dim'], 'size': 12}},
-        hoverlabel={'bgcolor': p['paper'], 'font_size': 12,
-                    'font_family': p['label_font'], 'font_color': p['gold_pale'],
-                    'bordercolor': 'rgba(201,168,76,.25)'},
+        title={
+            "text": title,
+            "font": {"family": p["title_font"], "size": 22, "color": p["gold"]},
+            "x": 0.5,
+            "xanchor": "center",
+        },
+        height=height,
+        width=width,
+        plot_bgcolor=p["bg"],
+        paper_bgcolor=p["paper"],
+        font={"family": p["body_font"], "color": p["gold_dim"]},
+        hovermode="x unified",
+        legend={
+            "bgcolor": "rgba(13,10,7,0.85)",
+            "font": {"family": p["label_font"], "color": p["gold_dim"], "size": 12},
+        },
+        hoverlabel={
+            "bgcolor": p["paper"],
+            "font_size": 12,
+            "font_family": p["label_font"],
+            "font_color": p["gold_pale"],
+            "bordercolor": "rgba(201,168,76,.25)",
+        },
     )
-    fig.update_annotations(font={'family': p['label_font'], 'color': p['gold_dim'], 'size': 14})
-    fig.update_xaxes(showgrid=True, gridcolor=p['grid'], zeroline=False,
-                     showline=True, linecolor=p['grid'], mirror=True,
-                     title_font={'family': p['label_font'], 'size': 13},
-                     tickfont={'family': p['label_font'], 'size': 11})
-    fig.update_yaxes(showgrid=True, gridcolor=p['grid'], zeroline=False,
-                     showline=True, linecolor=p['grid'], mirror=True,
-                     title_font={'family': p['label_font'], 'size': 13},
-                     tickfont={'family': p['label_font'], 'size': 11})
+    fig.update_annotations(font={"family": p["label_font"], "color": p["gold_dim"], "size": 14})
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor=p["grid"],
+        zeroline=False,
+        showline=True,
+        linecolor=p["grid"],
+        mirror=True,
+        title_font={"family": p["label_font"], "size": 13},
+        tickfont={"family": p["label_font"], "size": 11},
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=p["grid"],
+        zeroline=False,
+        showline=True,
+        linecolor=p["grid"],
+        mirror=True,
+        title_font={"family": p["label_font"], "size": 13},
+        tickfont={"family": p["label_font"], "size": 11},
+    )
     return fig
 
 
@@ -1477,7 +1566,7 @@ def plot_ksample_dashboard(
     true_values: Optional[Union[Dict[int, float], List[float]]] = None,
     group_colors: Optional[List[str]] = None,
     stop_block: Optional[int] = None,
-    title: str = 'k-Sample Sequential E-Test',
+    title: str = "k-Sample Sequential E-Test",
     height: int = 700,
     width: int = 1000,
 ) -> go.Figure:
@@ -1517,76 +1606,150 @@ def plot_ksample_dashboard(
         The styled dashboard figure.
     """
     p = EVIDENCE_PALETTE
-    k = sum(1 for c in history_df.columns if c.startswith('theta_')
-            and c.split('theta_')[1].isdigit())
+    k = sum(
+        1 for c in history_df.columns if c.startswith("theta_") and c.split("theta_")[1].isdigit()
+    )
     if k == 0:
         raise ValueError("history_df has no 'theta_{g}' columns; is this a k-sample history?")
 
     if group_labels is None:
-        group_labels = [f'Group {g}' for g in range(k)]
+        group_labels = [f"Group {g}" for g in range(k)]
     if group_colors is None:
-        cycle = [p['blue'], p['gold_bright'], p['teal'], p['violet'], p['gold'], p['gold_pale']]
+        cycle = [p["blue"], p["gold_bright"], p["teal"], p["violet"], p["gold"], p["gold_pale"]]
         group_colors = [cycle[g % len(cycle)] for g in range(k)]
     if isinstance(true_values, list):
         true_values = {g: true_values[g] for g in range(len(true_values))}
 
-    x0, x1 = history_df['step'].min(), history_df['step'].max()
+    x0, x1 = history_df["step"].min(), history_df["step"].max()
 
     fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=['E-process evolution', 'Sequential e-values',
-                        'Posterior theta estimates', 'Anytime-valid p-value'],
-        vertical_spacing=0.14, horizontal_spacing=0.1)
+        rows=2,
+        cols=2,
+        subplot_titles=[
+            "E-process evolution",
+            "Sequential e-values",
+            "Posterior theta estimates",
+            "Anytime-valid p-value",
+        ],
+        vertical_spacing=0.14,
+        horizontal_spacing=0.1,
+    )
 
     # (a) E-process
-    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['e_process_value'],
-        mode='lines', line={'color': p['teal'], 'width': 2.5}, name='E-process',
-        hovertemplate='<b>Block %{x}</b><br>E-process: %{y:.2f}<extra></extra>'),
-        row=1, col=1)
-    fig.add_trace(go.Scatter(x=[x0, x1], y=[1 / alpha, 1 / alpha],
-        mode='lines', line={'color': p['red'], 'width': 1.5, 'dash': 'dash'},
-        name=f'1/\u03b1 = {1/alpha:.0f}'), row=1, col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=history_df["step"],
+            y=history_df["e_process_value"],
+            mode="lines",
+            line={"color": p["teal"], "width": 2.5},
+            name="E-process",
+            hovertemplate="<b>Block %{x}</b><br>E-process: %{y:.2f}<extra></extra>",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x0, x1],
+            y=[1 / alpha, 1 / alpha],
+            mode="lines",
+            line={"color": p["red"], "width": 1.5, "dash": "dash"},
+            name=f"1/\u03b1 = {1/alpha:.0f}",
+        ),
+        row=1,
+        col=1,
+    )
     if stop_block is not None:
-        fig.add_vline(x=stop_block, line_color=p['teal'],
-                      line_dash='dot', opacity=0.6, row=1, col=1)
-    fig.update_yaxes(type='log', title_text='E-process', row=1, col=1)
+        fig.add_vline(
+            x=stop_block, line_color=p["teal"], line_dash="dot", opacity=0.6, row=1, col=1
+        )
+    fig.update_yaxes(type="log", title_text="E-process", row=1, col=1)
 
     # (b) Per-step e-values
-    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['e_value'],
-        mode='lines', line={'color': p['gold'], 'width': 1.5}, name='S\u2c7c',
-        opacity=0.8,
-        hovertemplate='<b>Block %{x}</b><br>S\u2c7c: %{y:.4f}<extra></extra>'),
-        row=1, col=2)
-    fig.add_trace(go.Scatter(x=[x0, x1], y=[1.0, 1.0],
-        mode='lines', line={'color': p['gold_dim'], 'width': 1, 'dash': 'dot'},
-        name='E[S\u2c7c]=1 under H\u2080', showlegend=False), row=1, col=2)
-    fig.update_yaxes(title_text='Per-step e-value', row=1, col=2)
+    fig.add_trace(
+        go.Scatter(
+            x=history_df["step"],
+            y=history_df["e_value"],
+            mode="lines",
+            line={"color": p["gold"], "width": 1.5},
+            name="S\u2c7c",
+            opacity=0.8,
+            hovertemplate="<b>Block %{x}</b><br>S\u2c7c: %{y:.4f}<extra></extra>",
+        ),
+        row=1,
+        col=2,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x0, x1],
+            y=[1.0, 1.0],
+            mode="lines",
+            line={"color": p["gold_dim"], "width": 1, "dash": "dot"},
+            name="E[S\u2c7c]=1 under H\u2080",
+            showlegend=False,
+        ),
+        row=1,
+        col=2,
+    )
+    fig.update_yaxes(title_text="Per-step e-value", row=1, col=2)
 
     # (c) Posterior thetas
     for g in range(k):
-        fig.add_trace(go.Scatter(x=history_df['step'], y=history_df[f'theta_{g}'],
-            mode='lines', line={'color': group_colors[g], 'width': 2},
-            name=group_labels[g],
-            hovertemplate=f'<b>Block %{{x}}</b><br>{group_labels[g]}: %{{y:.4f}}<extra></extra>'),
-            row=2, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=history_df["step"],
+                y=history_df[f"theta_{g}"],
+                mode="lines",
+                line={"color": group_colors[g], "width": 2},
+                name=group_labels[g],
+                hovertemplate=f"<b>Block %{{x}}</b><br>{group_labels[g]}: %{{y:.4f}}<extra></extra>",
+            ),
+            row=2,
+            col=1,
+        )
         if true_values is not None and g in true_values:
-            fig.add_trace(go.Scatter(x=[x0, x1], y=[true_values[g]] * 2,
-                mode='lines', line={'color': group_colors[g], 'width': 1, 'dash': 'dot'},
-                showlegend=False), row=2, col=1)
-    fig.update_yaxes(title_text='Posterior mean', row=2, col=1)
+            fig.add_trace(
+                go.Scatter(
+                    x=[x0, x1],
+                    y=[true_values[g]] * 2,
+                    mode="lines",
+                    line={"color": group_colors[g], "width": 1, "dash": "dot"},
+                    showlegend=False,
+                ),
+                row=2,
+                col=1,
+            )
+    fig.update_yaxes(title_text="Posterior mean", row=2, col=1)
 
     # (d) P-value
-    fig.add_trace(go.Scatter(x=history_df['step'], y=history_df['p_value'],
-        mode='lines', line={'color': p['violet'], 'width': 2}, name='p-value',
-        hovertemplate='<b>Block %{x}</b><br>p: %{y:.2e}<extra></extra>'),
-        row=2, col=2)
-    fig.add_trace(go.Scatter(x=[x0, x1], y=[alpha, alpha],
-        mode='lines', line={'color': p['red'], 'width': 1.5, 'dash': 'dash'},
-        name=f'\u03b1 = {alpha}', showlegend=False), row=2, col=2)
-    fig.update_yaxes(type='log', title_text='p-value', row=2, col=2)
+    fig.add_trace(
+        go.Scatter(
+            x=history_df["step"],
+            y=history_df["p_value"],
+            mode="lines",
+            line={"color": p["violet"], "width": 2},
+            name="p-value",
+            hovertemplate="<b>Block %{x}</b><br>p: %{y:.2e}<extra></extra>",
+        ),
+        row=2,
+        col=2,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[x0, x1],
+            y=[alpha, alpha],
+            mode="lines",
+            line={"color": p["red"], "width": 1.5, "dash": "dash"},
+            name=f"\u03b1 = {alpha}",
+            showlegend=False,
+        ),
+        row=2,
+        col=2,
+    )
+    fig.update_yaxes(type="log", title_text="p-value", row=2, col=2)
 
-    fig.update_xaxes(title_text='Block', row=2, col=1)
-    fig.update_xaxes(title_text='Block', row=2, col=2)
+    fig.update_xaxes(title_text="Block", row=2, col=1)
+    fig.update_xaxes(title_text="Block", row=2, col=2)
 
     apply_evidence_layout(fig, title, height=height, width=width)
     return fig

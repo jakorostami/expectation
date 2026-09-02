@@ -17,7 +17,9 @@
 //! (Proposition 1, Corollary 2). However, applying an admissible adjuster A
 //! to the running maxima first restores validity:
 //!
-//!     adjusted_e[k] = A(max_{s<=t} E_s^k)
+//! ```text
+//! adjusted_e[k] = A(max_{s<=t} E_s^k)
+//! ```
 //!
 //! Theorem 1: adjusted e-BH controls FDR-sup at level K₀α/K.
 //!

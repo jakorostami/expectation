@@ -18,13 +18,6 @@ References:
 import numpy as np
 import pytest
 
-from expectation.par_seqtest import (
-    CombinerStrategy,
-    MergingMethod,
-    ParallelSequentialTest,
-    ParallelTestConfig,
-    StepResult,
-)
 from expectation.modules.merging import (
     ArithmeticMeanMerger,
     LambdaProductMerger,
@@ -32,7 +25,13 @@ from expectation.modules.merging import (
     SegmentProductMerger,
     UStatisticMerger,
 )
-
+from expectation.par_seqtest import (
+    CombinerStrategy,
+    MergingMethod,
+    ParallelSequentialTest,
+    ParallelTestConfig,
+    StepResult,
+)
 
 TOLERANCE = 1e-13
 
@@ -40,6 +39,7 @@ TOLERANCE = 1e-13
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_pst(
     n_tests: int,
@@ -84,6 +84,7 @@ def _run_steps(pst, observations_list):
 # ---------------------------------------------------------------------------
 # Backward compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestBackwardCompatibility:
     """No merge -> StepResult merged fields are all None, engine unchanged."""
@@ -138,6 +139,7 @@ class TestBackwardCompatibility:
 # Config validation
 # ---------------------------------------------------------------------------
 
+
 class TestMergeConfigValidation:
     """Frozen config, invalid params raise."""
 
@@ -181,6 +183,7 @@ class TestMergeConfigValidation:
 # ---------------------------------------------------------------------------
 # Arithmetic Mean merge
 # ---------------------------------------------------------------------------
+
 
 class TestArithmeticMeanMerge:
     """Rust merged_e_value == Python np.mean(exp(log_e_sequential)) at each step."""
@@ -233,6 +236,7 @@ class TestArithmeticMeanMerge:
 # U-Statistic merge
 # ---------------------------------------------------------------------------
 
+
 class TestUStatisticMerge:
     """Rust merged_e_value == Python UStatisticMerger at each step."""
 
@@ -259,8 +263,7 @@ class TestUStatisticMerge:
             py_result = merger.merge(e_values)
 
             assert abs(result.merged_e_value - py_result.merged_e_value) < TOLERANCE, (
-                f"n={n_order}: Rust={result.merged_e_value}, "
-                f"Python={py_result.merged_e_value}"
+                f"n={n_order}: Rust={result.merged_e_value}, " f"Python={py_result.merged_e_value}"
             )
 
     def test_order_0_is_one(self):
@@ -292,6 +295,7 @@ class TestUStatisticMerge:
 # Lambda-Product merge
 # ---------------------------------------------------------------------------
 
+
 class TestLambdaProductMerge:
     """Rust merged_e_value == Python LambdaProductMerger at each step."""
 
@@ -318,8 +322,7 @@ class TestLambdaProductMerge:
             py_result = merger.merge(e_values)
 
             assert abs(result.merged_e_value - py_result.merged_e_value) < TOLERANCE, (
-                f"lambda={lam}: Rust={result.merged_e_value}, "
-                f"Python={py_result.merged_e_value}"
+                f"lambda={lam}: Rust={result.merged_e_value}, " f"Python={py_result.merged_e_value}"
             )
 
     def test_lambda_1_is_product(self):
@@ -340,6 +343,7 @@ class TestLambdaProductMerge:
 # ---------------------------------------------------------------------------
 # Segment-Product merge
 # ---------------------------------------------------------------------------
+
 
 class TestSegmentProductMerge:
     """Rust merged_e_value == Python SegmentProductMerger at each step."""
@@ -366,9 +370,9 @@ class TestSegmentProductMerge:
             e_values = np.exp(pst_no_merge.log_e_sequential())
             py_result = merger.merge(e_values)
 
-            assert abs(result.merged_e_value - py_result.merged_e_value) < TOLERANCE, (
-                f"Rust={result.merged_e_value}, Python={py_result.merged_e_value}"
-            )
+            assert (
+                abs(result.merged_e_value - py_result.merged_e_value) < TOLERANCE
+            ), f"Rust={result.merged_e_value}, Python={py_result.merged_e_value}"
 
     def test_singletons_equal_product(self):
         """Segments of size 1 each should equal product merge."""
@@ -394,6 +398,7 @@ class TestSegmentProductMerge:
 # ---------------------------------------------------------------------------
 # Product merge
 # ---------------------------------------------------------------------------
+
 
 class TestProductMerge:
     """Rust merged_e_value == Python np.prod(exp(log_e_sequential))."""
@@ -433,6 +438,7 @@ class TestProductMerge:
 # ---------------------------------------------------------------------------
 # Temporal accumulation
 # ---------------------------------------------------------------------------
+
 
 class TestTemporalAccumulation:
     """Merged e-process matches step-by-step temporal combiner application."""
@@ -497,14 +503,13 @@ class TestTemporalAccumulation:
             obs = np.random.randn(n_tests) + 1.0
             result = pst.step(obs)
 
-        assert result.log_merged_e_process > 0, (
-            "Adaptive temporal combiner should detect signal"
-        )
+        assert result.log_merged_e_process > 0, "Adaptive temporal combiner should detect signal"
 
 
 # ---------------------------------------------------------------------------
 # Intersection null validity (supermartingale property)
 # ---------------------------------------------------------------------------
+
 
 class TestIntersectionNullValidity:
     """Under all-null, E[merged e-process] should be approximately 1."""
@@ -537,6 +542,7 @@ class TestIntersectionNullValidity:
 # Signal detection
 # ---------------------------------------------------------------------------
 
+
 class TestSignalDetection:
     """All tests have signal -> merged e-process grows and rejects."""
 
@@ -552,9 +558,7 @@ class TestSignalDetection:
             obs = np.random.randn(n_tests) + 2.0  # All tests have signal
             result = pst.step(obs)
 
-        assert result.merged_rejected is True, (
-            "Merged e-process should reject under strong signal"
-        )
+        assert result.merged_rejected is True, "Merged e-process should reject under strong signal"
         assert result.merged_p_value < 0.05
 
     def test_merged_p_value_decreases(self):
@@ -571,14 +575,13 @@ class TestSignalDetection:
             p_values.append(result.merged_p_value)
 
         # Overall trend should be decreasing
-        assert p_values[-1] < p_values[0], (
-            "Merged p-value should decrease under signal"
-        )
+        assert p_values[-1] < p_values[0], "Merged p-value should decrease under signal"
 
 
 # ---------------------------------------------------------------------------
 # Include rejected flag
 # ---------------------------------------------------------------------------
+
 
 class TestIncludeRejectedFlag:
     """True: all K used; False: rejected tests replaced with 1.0."""
@@ -590,11 +593,13 @@ class TestIncludeRejectedFlag:
         n_steps = 50
 
         pst_include = _make_pst(
-            n_tests=n_tests, global_merge="arithmetic_mean",
+            n_tests=n_tests,
+            global_merge="arithmetic_mean",
             merge_include_rejected=True,
         )
         pst_exclude = _make_pst(
-            n_tests=n_tests, global_merge="arithmetic_mean",
+            n_tests=n_tests,
+            global_merge="arithmetic_mean",
             merge_include_rejected=False,
         )
 
@@ -619,6 +624,7 @@ class TestIncludeRejectedFlag:
 # ---------------------------------------------------------------------------
 # Different temporal combiners
 # ---------------------------------------------------------------------------
+
 
 class TestDifferentTemporalCombiners:
     """ALL_IN, CONSERVATIVE, EMPIRICALLY_ADAPTIVE produce different trajectories."""
@@ -648,29 +654,36 @@ class TestDifferentTemporalCombiners:
             assert results[comb] is not None, f"{comb} gave None"
 
         # ALL_IN should differ from CONSERVATIVE (under signal)
-        assert abs(results["all_in"] - results["conservative"]) > 1e-6, (
-            "ALL_IN and CONSERVATIVE should produce different trajectories"
-        )
+        assert (
+            abs(results["all_in"] - results["conservative"]) > 1e-6
+        ), "ALL_IN and CONSERVATIVE should produce different trajectories"
 
 
 # ---------------------------------------------------------------------------
 # Cross-product: all merge functions x temporal combiners
 # ---------------------------------------------------------------------------
 
+
 class TestAllMergerCombinations:
     """Every merge function x temporal combiner combination should work."""
 
-    @pytest.mark.parametrize("merge_fn", [
-        "arithmetic_mean",
-        "u_statistic",
-        "lambda_product",
-        "product",
-    ])
-    @pytest.mark.parametrize("temporal_comb", [
-        "all_in",
-        "conservative",
-        "empirically_adaptive",
-    ])
+    @pytest.mark.parametrize(
+        "merge_fn",
+        [
+            "arithmetic_mean",
+            "u_statistic",
+            "lambda_product",
+            "product",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "temporal_comb",
+        [
+            "all_in",
+            "conservative",
+            "empirically_adaptive",
+        ],
+    )
     def test_combination(self, merge_fn, temporal_comb):
         """Each merge function + temporal combiner combo produces valid output."""
         np.random.seed(60)
@@ -719,6 +732,7 @@ class TestAllMergerCombinations:
 # StepResult model properties
 # ---------------------------------------------------------------------------
 
+
 class TestStepResultMergedFields:
     """Verify StepResult Pydantic model with merged fields."""
 
@@ -762,7 +776,8 @@ class TestStepResultMergedFields:
         """CONSERVATIVE temporal combiner should have configured lambda."""
         lam = 0.3
         pst = _make_pst(
-            n_tests=5, global_merge="arithmetic_mean",
+            n_tests=5,
+            global_merge="arithmetic_mean",
             merge_combiner="conservative",
             merge_conservative_lambda=lam,
         )

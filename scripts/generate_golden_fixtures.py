@@ -49,14 +49,16 @@ def generate_single_voxel_golden():
 
         log_e_cum = float(mixture.log_superMG(s, v))
 
-        steps.append({
-            "t": t,
-            "x": float(x),
-            "data_sum": float(data_sum),
-            "s": float(s),
-            "v": float(v),
-            "log_e_cum": float(log_e_cum),
-        })
+        steps.append(
+            {
+                "t": t,
+                "x": float(x),
+                "data_sum": float(data_sum),
+                "s": float(s),
+                "v": float(v),
+                "log_e_cum": float(log_e_cum),
+            }
+        )
 
         previous_log_e_cum = log_e_cum
 
@@ -108,13 +110,15 @@ def generate_multi_voxel_golden():
             v = t * known_variance
             log_e_cum = float(mixture.log_superMG(s, v))
 
-            step_data["voxels"].append({
-                "index": i,
-                "data_sum": float(data_sums[i]),
-                "s": float(s),
-                "v": float(v),
-                "log_e_cum": float(log_e_cum),
-            })
+            step_data["voxels"].append(
+                {
+                    "index": i,
+                    "data_sum": float(data_sums[i]),
+                    "s": float(s),
+                    "v": float(v),
+                    "log_e_cum": float(log_e_cum),
+                }
+            )
 
         all_steps.append(step_data)
 
@@ -147,8 +151,10 @@ def main():
 
     print(f"Generated golden fixtures: {output_path}")
     print(f"  Single voxel: {len(golden['single_voxel']['steps'])} steps")
-    print(f"  Multi voxel: {golden['multi_voxel']['config']['n_voxels']} voxels, "
-          f"{len(golden['multi_voxel']['steps'])} steps")
+    print(
+        f"  Multi voxel: {golden['multi_voxel']['config']['n_voxels']} voxels, "
+        f"{len(golden['multi_voxel']['steps'])} steps"
+    )
 
 
 if __name__ == "__main__":

@@ -19,10 +19,11 @@ Tavyrikov, Goeman & de Heide (2025). Carefree multiple testing with
 Dawid, Ryter, Vovk, de Heide (2011a). Prequential probability.
 """
 
-import numpy as np
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Union
+
+import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict
 
@@ -49,9 +50,7 @@ class Adjuster(ABC):
     """
 
     @abstractmethod
-    def adjust(
-        self, e: Union[float, NDArray[np.float64]]
-    ) -> Union[float, NDArray[np.float64]]:
+    def adjust(self, e: Union[float, NDArray[np.float64]]) -> Union[float, NDArray[np.float64]]:
         """Compute A(E) on the natural scale.
 
         Parameters
@@ -88,7 +87,7 @@ class Adjuster(ABC):
 # Taylor threshold: for |x| < 1e-4, x^8/40320 < 1e-32
 _TAYLOR_THRESHOLD_SQ = 1e-8
 
-#. TODO: where to put?
+# . TODO: where to put?
 # def _lookback_from_log_scalar(x: float) -> float:
 #     """Core lookback computation for a single x = ln(E) > 0.
 
@@ -137,9 +136,7 @@ class LookbackAdjuster(Adjuster):
     Reference: Tavyrikov, Goeman & de Heide (2025), Eq. (5), first line.
     """
 
-    def adjust(
-        self, e: Union[float, NDArray[np.float64]]
-    ) -> Union[float, NDArray[np.float64]]:
+    def adjust(self, e: Union[float, NDArray[np.float64]]) -> Union[float, NDArray[np.float64]]:
         scalar = np.isscalar(e)
         e = np.atleast_1d(np.asarray(e, dtype=np.float64))
         result = np.zeros_like(e)
@@ -168,7 +165,6 @@ class LookbackAdjuster(Adjuster):
         return result
 
 
-
 class SqrtAdjuster(Adjuster):
     """Sqrt adjuster: A_2(E) = sqrt(E) - 1.
 
@@ -178,9 +174,7 @@ class SqrtAdjuster(Adjuster):
     Reference: Tavyrikov, Goeman & de Heide (2025), Eq. (5), second line.
     """
 
-    def adjust(
-        self, e: Union[float, NDArray[np.float64]]
-    ) -> Union[float, NDArray[np.float64]]:
+    def adjust(self, e: Union[float, NDArray[np.float64]]) -> Union[float, NDArray[np.float64]]:
         scalar = np.isscalar(e)
         e = np.atleast_1d(np.asarray(e, dtype=np.float64))
         result = np.zeros_like(e)
@@ -228,9 +222,7 @@ def create_adjuster(config: AdjusterConfig) -> Adjuster:
         raise ValueError(f"Unknown adjuster: {config.adjuster}")
 
 
-def lookback_adjust(
-    e: Union[float, NDArray[np.float64]]
-) -> Union[float, NDArray[np.float64]]:
+def lookback_adjust(e: Union[float, NDArray[np.float64]]) -> Union[float, NDArray[np.float64]]:
     """Apply the lookback adjuster: A_1(E) = (E - 1 - ln E) / (ln E)^2.
 
     Parameters
@@ -248,9 +240,7 @@ def lookback_adjust(
     return LookbackAdjuster().adjust(e)
 
 
-def sqrt_adjust(
-    e: Union[float, NDArray[np.float64]]
-) -> Union[float, NDArray[np.float64]]:
+def sqrt_adjust(e: Union[float, NDArray[np.float64]]) -> Union[float, NDArray[np.float64]]:
     """Apply the sqrt adjuster: A_2(E) = sqrt(E) - 1.
 
     Parameters

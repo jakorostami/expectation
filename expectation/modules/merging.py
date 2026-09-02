@@ -33,13 +33,14 @@ exposes the gambling system for each named function, bridging to the
 sequential e-process framework in martingales.py.
 """
 
-import numpy as np
 from abc import ABC, abstractmethod
 from enum import Enum
-from scipy.special import comb as _sp_comb
-from typing import Optional, List
+from typing import List, Optional
+
+import numpy as np
 from numpy.typing import NDArray
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from scipy.special import comb as _sp_comb
 
 
 def _comb(n: int, k: int) -> int:
@@ -74,6 +75,7 @@ class MergingConfig(BaseModel):
         where a new segment starts. Must be strictly increasing, all > 0
         and < K.
     """
+
     merging_function: MergingFunction
     K: Optional[int] = Field(default=None, ge=1)
     lambda_param: float = Field(default=0.5, gt=0, le=1)
@@ -160,7 +162,7 @@ class EValueMerger(ABC):
 
     def _validate(self, e_values: NDArray) -> bool:
         return bool(np.all(e_values >= 0))
-    
+
 
 class ArithmeticMeanMerger(EValueMerger):
     """
@@ -215,6 +217,7 @@ class ArithmeticMeanMerger(EValueMerger):
     def reset(self) -> None:
         pass
 
+
 class UStatisticMerger(EValueMerger):
     """
     U-statistic merging of order n: F(e) = U_n(e_1, ..., e_K).
@@ -244,9 +247,7 @@ class UStatisticMerger(EValueMerger):
         if len(e_values) == 0:
             raise ValueError("e_values must be non-empty")
         if self.n > len(e_values):
-            raise ValueError(
-                f"n={self.n} exceeds number of e-values K={len(e_values)}"
-            )
+            raise ValueError(f"n={self.n} exceeds number of e-values K={len(e_values)}")
         is_valid = self._validate(e_values)
         merged = self._compute_u_statistic(e_values, self.n)
         log_merged = float(np.log(merged)) if merged > 0 else -np.inf
@@ -283,7 +284,7 @@ class UStatisticMerger(EValueMerger):
         p[0] = 1.0
 
         for e in e_values:
-            p[1:n + 1] += e * p[0:n]
+            p[1 : n + 1] += e * p[0:n]
 
         return float(p[n] / _comb(K, n))
 
@@ -306,7 +307,7 @@ class UStatisticMerger(EValueMerger):
         q = np.zeros(n + 1)
         q[0] = 1.0
         for e in past_e_values[:k]:
-            q[1:n + 1] += e * q[0:n]
+            q[1 : n + 1] += e * q[0:n]
 
         m = self.K - k - 1  # remaining ones after the next e-value
 
@@ -335,6 +336,7 @@ class UStatisticMerger(EValueMerger):
     def reset(self) -> None:
         pass
 
+
 class LambdaProductMerger(EValueMerger):
     """
     Lambda-product merging: F(e) = prod_{k=1}^K (1 - lambda + lambda * e_k).
@@ -351,9 +353,7 @@ class LambdaProductMerger(EValueMerger):
 
     def __init__(self, lambda_param: float = 0.5):
         if not (0 < lambda_param <= 1):
-            raise ValueError(
-                f"lambda_param must be in (0, 1], got {lambda_param}"
-            )
+            raise ValueError(f"lambda_param must be in (0, 1], got {lambda_param}")
         self.lambda_param = lambda_param
 
     def merge(self, e_values: NDArray) -> MergingResult:
@@ -385,6 +385,7 @@ class LambdaProductMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
 
 class SegmentProductMerger(EValueMerger):
     """
@@ -424,9 +425,7 @@ class SegmentProductMerger(EValueMerger):
             if i > 0 and s <= segments[i - 1]:
                 raise ValueError("segment boundaries must be strictly increasing")
         if segments[-1] >= K:
-            raise ValueError(
-                f"last segment boundary {segments[-1]} must be < K={K}"
-            )
+            raise ValueError(f"last segment boundary {segments[-1]} must be < K={K}")
         self.segments = segments
         self.K = K
 
@@ -488,6 +487,7 @@ class SegmentProductMerger(EValueMerger):
 
     def reset(self) -> None:
         pass
+
 
 class ProductMerger(EValueMerger):
     """
@@ -571,7 +571,6 @@ def create_merger(config: MergingConfig) -> EValueMerger:
 
     else:
         raise ValueError(f"Unknown merging function: {func}")
-
 
 
 def arithmetic_mean_merge(e_values: NDArray) -> float:
