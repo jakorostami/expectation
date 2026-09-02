@@ -39,7 +39,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "maturin>=1.9",
-    "black>=24.0",
+    "black>=26.5.1",
     "isort>=5.13",
     "mypy>=1.8",
 ]
