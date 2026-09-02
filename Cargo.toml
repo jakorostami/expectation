@@ -35,7 +35,7 @@ thiserror = "2.0.17"
 [dev-dependencies]
 # Testing utilities
 proptest = "1.5"
-criterion = "0.5"
+criterion = "0.8"
 
 [profile.release]
 # Optimization settings for production builds
