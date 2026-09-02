@@ -28,7 +28,7 @@ classifiers = [
 # Do not lower a bound without confirming that leg passes.
 dependencies = [
     "numpy>=1.26",
-    "scipy>=1.12",
+    "scipy>=1.18.1",
     "pydantic>=2.5",
     "pandas>=2.2",
     "plotly>=5.18",
