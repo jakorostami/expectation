@@ -202,26 +202,26 @@ jobs:
           merge-multiple: true
           path: dist
 
-      # Gate 1: the exact wheel we are about to publish, installed into a clean
-      # venv, with tests run from a neutral directory so the local package
-      # source cannot shadow the installed wheel.
+      # Gate 1: install the platform-correct wheel from dist/ into a clean venv
+      # (pip selects the matching wheel), then run the suite with importlib
+      # import mode so the local source tree cannot shadow the installed wheel.
       - name: Test built wheel
         run: |
           python -m venv /tmp/wheelenv
-          source /tmp/wheelenv/bin/activate
-          WHEEL=$(ls dist/*.whl | head -1)
-          pip install "$WHEEL" pytest
-          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+          source /tmp/wheelenv/bin/activate 2>/dev/null || source /tmp/wheelenv/Scripts/activate
+          python -m pip install --upgrade pip
+          pip install --find-links dist --only-binary expectation expectation pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" --import-mode=importlib -x -q
 
-      # Gate 2: the exact sdist — exercises the end-user source build (compiles
-      # the Rust backend from scratch).
+      # Gate 2: build and install from the sdist (compiles the Rust backend from
+      # scratch), then run the suite the same shadow-proof way.
       - name: Test built sdist
         run: |
           python -m venv /tmp/sdistenv
-          source /tmp/sdistenv/bin/activate
-          SDIST=$(ls dist/*.tar.gz | head -1)
-          pip install "$SDIST" pytest
-          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" -x -q
+          source /tmp/sdistenv/bin/activate 2>/dev/null || source /tmp/sdistenv/Scripts/activate
+          python -m pip install --upgrade pip
+          pip install --find-links dist --no-binary expectation expectation pytest
+          cd /tmp && python -m pytest "$OLDPWD/tests" -m "not performance" --import-mode=importlib -x -q
 
   publish:
     name: Publish to PyPI and create GitHub release
