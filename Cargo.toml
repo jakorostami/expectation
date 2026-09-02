@@ -27,7 +27,7 @@ path = "rust/lib.rs"
 pyo3 = { version = "0.22", features = ["abi3-py310"] }
 
 # Numerical computation libraries
-ndarray = "0.16"
+ndarray = "0.17"
 numpy = "0.22"
 rayon = "1.10"
 thiserror = "2.0.17"
