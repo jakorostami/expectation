@@ -243,7 +243,7 @@ jobs:
 
       - name: Create GitHub release
         if: needs.setup.outputs.publish == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.setup.outputs.version }}
           name: v${{ needs.setup.outputs.version }}
