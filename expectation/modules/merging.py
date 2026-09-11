@@ -31,6 +31,23 @@ where s_k is a gambling system with s_k in [0, 1] (Eq. 4).
 This module implements batch merging (combine K e-values at once) and
 exposes the gambling system for each named function, bridging to the
 sequential e-process framework in martingales.py.
+
+Sparse-mixture merging (``SparseMixtureMerger``) is additionally based on:
+
+Anytime-Valid Tests for Sparse Anomalies, M. F. Pérez-Ortiz, R. M. Castro,
+I. V. Stoepker (2025) - https://arxiv.org/pdf/2506.22588
+    - Eq. (4): oracle test martingale prod_i {(1 - eps) + eps LR_i(t)}
+    - Section 2.2, Eq. (6) and grid (9): adaptive mixture over a discrete sparsity grid
+    - Theorems 2.1, 2.3, 2.6, 2.7: detection moment t* = T* rho(beta)
+    - Eq. (3): the Donoho-Jin / Ingster detection boundary rho(beta)
+
+Higher criticism for detecting sparse heterogeneous mixtures, D. Donoho, J. Jin (2004)
+    - Annals of Statistics 32(3); Section 1.1 (the model and the detection boundary)
+
+Anytime-valid FDR control with the stopped e-BH procedure, H. Wang, S. Dandapanthula,
+A. Ramdas (2025) - https://arxiv.org/pdf/2502.08539
+    - local e-processes are global e-processes when the streams are independent
+      (the contract under which the product step of the sparse mixture is valid)
 """
 
 from abc import ABC, abstractmethod
@@ -41,6 +58,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scipy.special import comb as _sp_comb
+from scipy.special import logsumexp
 
 
 def _comb(n: int, k: int) -> int:
@@ -54,6 +72,7 @@ class MergingFunction(str, Enum):
     LAMBDA_PRODUCT = "lambda_product"
     SEGMENT_PRODUCT = "segment_product"
     PRODUCT = "product"
+    SPARSE_MIXTURE = "sparse_mixture"
 
 
 class MergingConfig(BaseModel):
@@ -74,6 +93,12 @@ class MergingConfig(BaseModel):
         Segment boundaries for SEGMENT_PRODUCT. Each entry is the index
         where a new segment starts. Must be strictly increasing, all > 0
         and < K.
+    sparsity_grid : list of float, optional
+        Sparsity levels for SPARSE_MIXTURE (strictly increasing, in (0, 1]).
+        Default: the Pérez-Ortiz-Castro-Stoepker grid K^{-beta} built from K.
+    sparsity_prior : list of float, optional
+        Prior over ``sparsity_grid`` for SPARSE_MIXTURE (positive, sums to one).
+        Default uniform.
     """
 
     merging_function: MergingFunction
@@ -81,6 +106,8 @@ class MergingConfig(BaseModel):
     lambda_param: float = Field(default=0.5, gt=0, le=1)
     u_order: int = Field(default=1, ge=0)
     segments: Optional[List[int]] = None
+    sparsity_grid: Optional[List[float]] = None
+    sparsity_prior: Optional[List[float]] = None
 
     model_config = ConfigDict(frozen=True)
 
@@ -96,6 +123,22 @@ class MergingConfig(BaseModel):
                     raise ValueError("segment boundaries must be strictly increasing")
             if self.K is not None and self.segments[-1] >= self.K:
                 raise ValueError("segment boundaries must be < K")
+        if self.sparsity_grid is not None:
+            grid = np.asarray(self.sparsity_grid, dtype=np.float64)
+            if grid.ndim != 1 or len(grid) == 0:
+                raise ValueError("sparsity_grid must be a non-empty list")
+            if np.any(grid <= 0) or np.any(grid > 1):
+                raise ValueError("sparsity_grid entries must lie in (0, 1]")
+            if np.any(np.diff(grid) <= 0):
+                raise ValueError("sparsity_grid must be strictly increasing")
+        if self.sparsity_prior is not None:
+            if self.sparsity_grid is None:
+                raise ValueError("sparsity_prior requires an explicit sparsity_grid")
+            prior = np.asarray(self.sparsity_prior, dtype=np.float64)
+            if prior.shape != (len(self.sparsity_grid),):
+                raise ValueError("sparsity_prior must have one entry per grid point")
+            if np.any(prior <= 0) or abs(prior.sum() - 1.0) > 1e-9:
+                raise ValueError("sparsity_prior must be positive and sum to one")
         return self
 
 
@@ -531,6 +574,232 @@ class ProductMerger(EValueMerger):
         pass
 
 
+def detection_boundary(beta: float) -> float:
+    """
+    Donoho-Jin / Ingster detection boundary rho(beta) for sparsity eps = K^{-beta}.
+
+    rho(beta) = beta - 1/2 on (1/2, 3/4] and (1 - sqrt(1 - beta))^2 on [3/4, 1]
+    (Donoho & Jin 2004, Section 1.1; Pérez-Ortiz, Castro & Stoepker 2025, Eq. (3)).
+    Their detection moment is t* = T* rho(beta) for signal delta = sqrt(2 ln K / T*).
+    """
+    if not 0.5 < beta <= 1.0:
+        raise ValueError(f"beta must be in (1/2, 1], got {beta}")
+    if beta <= 0.75:
+        return beta - 0.5
+    return float((1.0 - np.sqrt(1.0 - beta)) ** 2)
+
+
+def sparsity_grid(K: int, max_size: int = 32) -> NDArray:
+    """
+    The exponential sparsity grid of Pérez-Ortiz, Castro & Stoepker (2025), Eq. (9):
+    {K^{-beta_i} : beta_i = 1/2 + i / (2 ceil(ln^2 K)), i = 1..ceil(ln^2 K)}, thinned
+    (endpoints kept) to at most ``max_size`` points for cost control.
+    """
+    if K < 2:
+        raise ValueError(f"K must be >= 2, got {K}")
+    if max_size < 1:
+        raise ValueError(f"max_size must be >= 1, got {max_size}")
+    n_full = int(np.ceil(np.log(K) ** 2))
+    betas = 0.5 + np.arange(1, n_full + 1) / (2.0 * n_full)
+    if n_full > max_size:
+        idx = np.unique(np.round(np.linspace(0, n_full - 1, max_size)).astype(int))
+        betas = betas[idx]
+    return np.sort(float(K) ** (-betas))
+
+
+class SparseMixtureDiagnostics(BaseModel):
+    """
+    Localisation diagnostics of a sparse-mixture merge.
+
+    posterior_sparsity : list of float
+        Posterior over the sparsity grid, prior_j * F_j / sum.
+    sparsity_posterior_mean : float
+        Posterior mean of eps.
+    participation_ratio : float
+        (sum c_i^+)^2 / sum (c_i^+)^2 of the positive per-stream log contributions
+        c_i = log((1 - eps) + eps e_i) averaged over the posterior: the effective number
+        of streams carrying the evidence (c_i = 0 exactly for a stream at e_i = 1).
+    top_streams : list of int
+        Indices of the largest e-values (the ranking is the same for every eps).
+    """
+
+    posterior_sparsity: List[float]
+    sparsity_posterior_mean: float = Field(gt=0, le=1)
+    participation_ratio: float = Field(ge=0)
+    top_streams: List[int]
+
+    model_config = ConfigDict(frozen=True)
+
+
+class SparseMixtureMerger(EValueMerger):
+    """
+    Sparse-mixture merging: F(e) = sum_j pi_j prod_{k=1}^{K} (1 - eps_j + eps_j e_k).
+
+    A prior mixture of lambda-products over a grid of sparsity levels eps_j.  Read
+    with eps as an anomaly fraction this is the adaptive sparse-anomaly test
+    martingale of Pérez-Ortiz, Castro & Stoepker (2025), Eq. (6) mixed over their
+    grid (9), when the inputs are the *current values* of K independent per-stream
+    test supermartingales (their Eq. (4) uses Gaussian likelihood ratios; any test
+    supermartingale per stream is admissible).  The output is then itself an
+    e-process in time -- do not accumulate it again temporally.
+
+    It is a martingale merging function in the sense of Vovk & Wang (2024), Eq. (4):
+    its gambling system is the posterior-mean sparsity
+        s_k(e_1, ..., e_k) = sum_j w_j(e_1..e_k) eps_j,
+        w_j ∝ pi_j prod_{i <= k} (1 - eps_j + eps_j e_i),
+    so S_K(e) = prod_k (1 + s_k (e_{k+1} - 1)) reproduces F(e) exactly.
+
+    Power: powerful exactly where the arithmetic mean is powerless (a few streams with
+    very large e-values among many at one); the Donoho-Jin boundary governs the
+    detectable regime (``detection_boundary``).  Validity of the product step needs
+    independent streams (Wang, Dandapanthula & Ramdas 2025); under dependence use
+    ``ArithmeticMeanMerger``.
+
+    References
+    ----------
+    Pérez-Ortiz, Castro & Stoepker (2025) Eq. (4), (6), (9), Theorems 2.1-2.7;
+    Vovk & Wang (2024) Eq. (4), Corollary 1; Donoho & Jin (2004) Section 1.1.
+    """
+
+    def __init__(
+        self,
+        K: int,
+        sparsity_grid_values: Optional[List[float]] = None,
+        prior: Optional[List[float]] = None,
+        max_grid_size: int = 32,
+        n_top_streams: int = 10,
+    ):
+        """
+        Parameters
+        ----------
+        K : int
+            Number of e-values (streams).
+        sparsity_grid_values : list of float, optional
+            Strictly increasing sparsity levels in (0, 1]; default ``sparsity_grid(K)``.
+        prior : list of float, optional
+            Prior over the grid; default uniform.
+        max_grid_size : int
+            Cap for the default grid (cost per merge is O(grid * K)).
+        n_top_streams : int
+            Number of top-ranked stream indices reported by ``diagnostics``.
+        """
+        if K < 2:
+            raise ValueError(f"K must be >= 2, got {K}")
+        if n_top_streams < 1:
+            raise ValueError("n_top_streams must be >= 1")
+        if sparsity_grid_values is None:
+            grid = sparsity_grid(K, max_grid_size)
+        else:
+            grid = np.asarray(sparsity_grid_values, dtype=np.float64)
+            if grid.ndim != 1 or len(grid) == 0:
+                raise ValueError("sparsity_grid_values must be a non-empty list")
+            if np.any(grid <= 0) or np.any(grid > 1):
+                raise ValueError("sparsity levels must lie in (0, 1]")
+            if np.any(np.diff(grid) <= 0):
+                raise ValueError("sparsity levels must be strictly increasing")
+        prior_arr: NDArray
+        if prior is None:
+            prior_arr = np.full(len(grid), 1.0 / len(grid))
+        else:
+            prior_arr = np.asarray(prior, dtype=np.float64)
+            if prior_arr.shape != (len(grid),):
+                raise ValueError("prior must have one entry per grid point")
+            if np.any(prior_arr <= 0) or abs(prior_arr.sum() - 1.0) > 1e-9:
+                raise ValueError("prior must be positive and sum to one")
+        self.K = K
+        self.epsilons = grid
+        self.prior = prior_arr
+        self.n_top_streams = n_top_streams
+        self._log_prior = np.log(prior_arr)
+        self._log_eps = np.log(grid)
+        with np.errstate(divide="ignore"):  # eps = 1 gives log(0) = -inf, legitimately
+            self._log_one_minus_eps = np.log1p(-grid)
+
+    def _log_lambda_products(self, log_e: NDArray) -> NDArray:
+        """log prod_k (1 - eps_j + eps_j e_k) for every grid point j, in log space."""
+        out = np.empty(len(self.epsilons))
+        for j in range(len(self.epsilons)):
+            out[j] = float(
+                np.sum(np.logaddexp(self._log_one_minus_eps[j], self._log_eps[j] + log_e))
+            )
+        return out
+
+    def _check_log_e(self, log_e: NDArray) -> NDArray:
+        log_e = np.asarray(log_e, dtype=np.float64).ravel()
+        if len(log_e) == 0:
+            raise ValueError("e_values must be non-empty")
+        if np.any(np.isnan(log_e)) or np.any(log_e == np.inf):
+            raise ValueError("e-values must be finite (zero capital, log = -inf, is admissible)")
+        return log_e
+
+    def merge_log(self, log_e_values: NDArray) -> MergingResult:
+        """
+        Merge from log e-values (e.g. ``ParallelSequentialTest.log_e_processes()``),
+        avoiding overflow for very large capital.
+        """
+        log_e = self._check_log_e(log_e_values)
+        with np.errstate(over="ignore"):
+            e_values = np.exp(log_e)
+        is_valid = self._validate(e_values)
+        log_terms = self._log_prior + self._log_lambda_products(log_e)
+        log_merged = float(logsumexp(log_terms))
+        merged = float(np.exp(log_merged)) if log_merged < 709.0 else float("inf")
+        return MergingResult(
+            merged_e_value=merged,
+            log_merged_e_value=log_merged,
+            K=len(log_e),
+            merging_function=MergingFunction.SPARSE_MIXTURE,
+            is_valid=is_valid,
+        )
+
+    def merge(self, e_values: NDArray) -> MergingResult:
+        e_values = np.asarray(e_values, dtype=np.float64)
+        if len(e_values) == 0:
+            raise ValueError("e_values must be non-empty")
+        if np.any(np.isnan(e_values)) or np.any(e_values < 0):
+            raise ValueError("e_values must be nonnegative")
+        with np.errstate(divide="ignore"):
+            return self.merge_log(np.log(e_values))
+
+    def posterior(self, e_values: NDArray) -> NDArray:
+        """Posterior over the sparsity grid given e-values: pi_j F_j(e) / sum."""
+        with np.errstate(divide="ignore"):
+            log_e = self._check_log_e(np.log(np.asarray(e_values, dtype=np.float64)))
+        log_terms = self._log_prior + self._log_lambda_products(log_e)
+        return np.asarray(np.exp(log_terms - logsumexp(log_terms)), dtype=np.float64)
+
+    def gambling_system(self, past_e_values: List[float], k: int) -> float:
+        # Posterior-mean sparsity given e_1..e_k (Vovk & Wang 2024, Eq. (4) representation).
+        if k == 0 or not past_e_values:
+            return float(self.prior @ self.epsilons)
+        post = self.posterior(np.asarray(past_e_values[:k], dtype=np.float64))
+        return float(np.clip(post @ self.epsilons, 0.0, 1.0))
+
+    def diagnostics(self, e_values: NDArray) -> SparseMixtureDiagnostics:
+        """Posterior over sparsity, participation ratio and top streams for ``e_values``."""
+        e_values = np.asarray(e_values, dtype=np.float64)
+        with np.errstate(divide="ignore"):
+            log_e = self._check_log_e(np.log(e_values))
+        post = self.posterior(e_values)
+        contrib = np.zeros_like(log_e)
+        for j in range(len(self.epsilons)):
+            contrib += post[j] * np.logaddexp(self._log_one_minus_eps[j], self._log_eps[j] + log_e)
+        positive = np.clip(contrib, 0.0, None)
+        total = float(positive.sum())
+        participation = float(total**2 / np.sum(positive**2)) if total > 0 else 0.0
+        n_top = min(self.n_top_streams, len(log_e))
+        top = np.argsort(-log_e, kind="stable")[:n_top]
+        return SparseMixtureDiagnostics(
+            posterior_sparsity=post.tolist(),
+            sparsity_posterior_mean=float(post @ self.epsilons),
+            participation_ratio=participation,
+            top_streams=[int(i) for i in top],
+        )
+
+    def reset(self) -> None:
+        pass
+
+
 def create_merger(config: MergingConfig) -> EValueMerger:
     """
     Create an EValueMerger from a MergingConfig.
@@ -568,6 +837,15 @@ def create_merger(config: MergingConfig) -> EValueMerger:
 
     elif func == MergingFunction.PRODUCT:
         return ProductMerger()
+
+    elif func == MergingFunction.SPARSE_MIXTURE:
+        if config.K is None:
+            raise ValueError("K is required for SparseMixtureMerger")
+        return SparseMixtureMerger(
+            K=config.K,
+            sparsity_grid_values=config.sparsity_grid,
+            prior=config.sparsity_prior,
+        )
 
     else:
         raise ValueError(f"Unknown merging function: {func}")
@@ -653,3 +931,27 @@ def segment_product_merge(e_values: NDArray, segments: List[int]) -> float:
     merger = SegmentProductMerger(segments=segments, K=K)
     result = merger.merge(e_values)
     return result.merged_e_value
+
+
+def sparse_mixture_merge(
+    e_values: NDArray, sparsity_grid_values: Optional[List[float]] = None
+) -> float:
+    """
+    Merge e-values (current e-process values of independent streams) via the
+    sparse mixture of lambda-products.
+
+    Parameters
+    ----------
+    e_values : NDArray
+        Array of K e-values.
+    sparsity_grid_values : list of float, optional
+        Sparsity levels; default Pérez-Ortiz-Castro-Stoepker grid built from K.
+
+    Returns
+    -------
+    float
+        The sparse-mixture merged e-value.
+    """
+    e_values = np.asarray(e_values, dtype=np.float64)
+    merger = SparseMixtureMerger(K=len(e_values), sparsity_grid_values=sparsity_grid_values)
+    return merger.merge(e_values).merged_e_value

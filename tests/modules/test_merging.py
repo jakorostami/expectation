@@ -11,6 +11,7 @@ from math import comb
 import numpy as np
 import pytest
 
+from expectation.modules.martingales import OneSidedNormalMixture
 from expectation.modules.merging import (
     ArithmeticMeanMerger,
     LambdaProductMerger,
@@ -19,11 +20,15 @@ from expectation.modules.merging import (
     MergingResult,
     ProductMerger,
     SegmentProductMerger,
+    SparseMixtureMerger,
     UStatisticMerger,
     arithmetic_mean_merge,
     create_merger,
+    detection_boundary,
     lambda_product_merge,
     segment_product_merge,
+    sparse_mixture_merge,
+    sparsity_grid,
     u_statistic_merge,
 )
 
@@ -516,3 +521,169 @@ class TestEdgeCases:
         ]
         for merger in mergers:
             merger.reset()  # Should not raise
+
+
+def _binomial_upper(alpha, n):
+    return alpha * n + 3 * np.sqrt(alpha * (1 - alpha) * n)
+
+
+class TestSparseMixtureMerger:
+    """Pérez-Ortiz, Castro & Stoepker (2025) sparse-anomaly mixture as a merging function."""
+
+    def test_default_grid_is_pcs_exponential_grid(self):
+        K = 1000
+        grid = sparsity_grid(K)
+        assert np.all(np.diff(grid) > 0)
+        assert grid.min() >= 1.0 / K - 1e-12
+        assert grid.max() < 1.0 / np.sqrt(K) + 1e-12
+        assert len(grid) <= 32
+        betas = -np.log(grid) / np.log(K)
+        assert np.all((betas > 0.5 - 1e-9) & (betas <= 1.0 + 1e-9))
+
+    def test_detection_boundary_formula(self):
+        assert detection_boundary(0.6) == pytest.approx(0.1)
+        assert detection_boundary(0.75) == pytest.approx(0.25)
+        assert detection_boundary(1.0) == pytest.approx(1.0)
+        with pytest.raises(ValueError):
+            detection_boundary(0.4)
+
+    def test_validation(self):
+        with pytest.raises(ValueError):
+            SparseMixtureMerger(K=1)
+        with pytest.raises(ValueError):
+            SparseMixtureMerger(K=10, sparsity_grid_values=[0.1, 0.05])
+        with pytest.raises(ValueError):
+            SparseMixtureMerger(K=10, sparsity_grid_values=[0.0, 0.5])
+        with pytest.raises(ValueError):
+            SparseMixtureMerger(K=10, sparsity_grid_values=[0.1, 0.5], prior=[0.5])
+        with pytest.raises(ValueError):
+            SparseMixtureMerger(K=10, sparsity_grid_values=[0.1, 0.5], prior=[0.7, 0.7])
+        merger = SparseMixtureMerger(K=5)
+        with pytest.raises(ValueError):
+            merger.merge(np.array([1.0, np.nan, 1.0, 1.0, 1.0]))
+        with pytest.raises(ValueError):
+            merger.merge(np.array([1.0, -1.0, 1.0, 1.0, 1.0]))
+        with pytest.raises(ValueError):
+            merger.merge_log(np.array([0.0, np.inf, 0.0, 0.0, 0.0]))
+        # zero capital in a stream is admissible
+        result = merger.merge(np.array([1.0, 0.0, 1.0, 1.0, 1.0]))
+        assert np.isfinite(result.log_merged_e_value)
+
+    def test_single_sparsity_equals_lambda_product_merger(self):
+        rng = np.random.default_rng(0)
+        e = np.exp(rng.normal(size=50))
+        for eps in (0.05, 0.3, 1.0):
+            merger = SparseMixtureMerger(K=50, sparsity_grid_values=[eps])
+            expected = LambdaProductMerger(eps).merge(e)
+            assert merger.merge(e).log_merged_e_value == pytest.approx(
+                expected.log_merged_e_value, abs=1e-12
+            )
+            assert merger.merge_log(np.log(e)).log_merged_e_value == pytest.approx(
+                expected.log_merged_e_value, abs=1e-12
+            )
+
+    def test_mixture_is_prior_average_of_lambda_products(self):
+        rng = np.random.default_rng(1)
+        e = np.exp(rng.normal(size=30))
+        grid, prior = [0.02, 0.1, 0.4], [0.5, 0.3, 0.2]
+        merger = SparseMixtureMerger(K=30, sparsity_grid_values=grid, prior=prior)
+        expected = sum(
+            w * LambdaProductMerger(eps).merge(e).merged_e_value for w, eps in zip(prior, grid)
+        )
+        assert merger.merge(e).merged_e_value == pytest.approx(expected, rel=1e-12)
+        assert merger.merge(e).merging_function == MergingFunction.SPARSE_MIXTURE
+        assert sum(merger.posterior(e)) == pytest.approx(1.0)
+
+    def test_gambling_system_reproduces_merge_exactly(self):
+        """Vovk & Wang (2024) Eq. (4): S_K(e) = prod_k (1 + s_k(e_(k-1)) (e_k - 1))."""
+        rng = np.random.default_rng(2)
+        e = np.exp(rng.normal(size=12))
+        merger = SparseMixtureMerger(K=12, sparsity_grid_values=[0.05, 0.2, 0.6, 1.0])
+        s_k = np.array([merger.gambling_system(list(e[:k]), k) for k in range(12)])
+        assert np.all((s_k >= 0) & (s_k <= 1))
+        reconstructed = float(np.prod(1.0 + s_k * (e - 1.0)))
+        assert reconstructed == pytest.approx(merger.merge(e).merged_e_value, rel=1e-10)
+
+    def test_all_ones_gives_unit_e_value(self):
+        merger = SparseMixtureMerger(K=100)
+        assert merger.merge(np.ones(100)).merged_e_value == pytest.approx(1.0)
+
+    def test_factory_and_convenience(self):
+        config = MergingConfig(
+            merging_function=MergingFunction.SPARSE_MIXTURE, K=20, sparsity_grid=[0.1, 0.5]
+        )
+        merger = create_merger(config)
+        assert isinstance(merger, SparseMixtureMerger)
+        e = np.ones(20)
+        e[3] = 50.0
+        assert sparse_mixture_merge(e, [0.1, 0.5]) == pytest.approx(merger.merge(e).merged_e_value)
+        with pytest.raises(ValueError):
+            create_merger(MergingConfig(merging_function=MergingFunction.SPARSE_MIXTURE))
+        with pytest.raises(ValueError):
+            MergingConfig(merging_function=MergingFunction.SPARSE_MIXTURE, sparsity_grid=[0.5, 0.1])
+        with pytest.raises(ValueError):
+            MergingConfig(
+                merging_function=MergingFunction.SPARSE_MIXTURE,
+                sparsity_grid=[0.1, 0.5],
+                sparsity_prior=[0.5],
+            )
+
+    def test_supermartingale_in_time_under_global_null(self):
+        """Inputs: 300 independent mixture-martingale e-processes with known unit variance."""
+        K, T, n_reps, alpha = 300, 25, 150, 0.1
+        rng = np.random.default_rng(3)
+        mixture = OneSidedNormalMixture(v_opt=10.0, alpha_opt=0.05)
+        merger = SparseMixtureMerger(K=K)
+        finals, rejections = [], 0
+        for _ in range(n_reps):
+            S = np.zeros(K)
+            log_max = 0.0
+            for t in range(1, T + 1):
+                S += rng.standard_normal(K)
+                log_merged = merger.merge_log(mixture.log_superMG(S, float(t))).log_merged_e_value
+                log_max = max(log_max, log_merged)
+            finals.append(np.exp(log_merged))
+            rejections += log_max >= np.log(1 / alpha)
+        finals = np.array(finals)
+        assert finals.mean() <= 1.0 + 3 * finals.std() / np.sqrt(n_reps)
+        assert rejections <= _binomial_upper(alpha, n_reps)
+
+    def test_sparse_strong_signal_where_arithmetic_mean_is_powerless(self):
+        K = 20000
+        e = np.ones(K)
+        planted = np.arange(0, K, K // 10)[:10]
+        e[planted] = 1000.0
+        assert ArithmeticMeanMerger(K).merge(e).merged_e_value < 20.0  # no rejection at 0.05
+        merger = SparseMixtureMerger(K=K)
+        assert merger.merge(e).merged_e_value >= 20.0
+        diag = merger.diagnostics(e)
+        assert set(planted) <= set(diag.top_streams)
+        assert diag.participation_ratio == pytest.approx(10.0, rel=0.2)
+
+    def test_pcs_detection_moment(self):
+        """Pérez-Ortiz, Castro & Stoepker (2025), Theorems 2.1/2.3/2.6/2.7: with
+        eps = K^-beta and delta = sqrt(2 ln K / T*), no power before t* = T* rho(beta)
+        and detection with probability -> 1 after it."""
+        K, beta, T_star = 2000, 0.75, 40.0
+        eps_true = K ** (-beta)
+        delta = np.sqrt(2 * np.log(K) / T_star)
+        assert T_star * detection_boundary(beta) == pytest.approx(10.0)
+        rng = np.random.default_rng(4)
+        merger = SparseMixtureMerger(K=K)
+        n_reps, T = 20, 40
+        early = late = 0
+        for _ in range(n_reps):
+            anomalous = rng.random(K) < eps_true
+            S = np.zeros(K)
+            log_max = 0.0
+            rejected_early = False
+            for t in range(1, T + 1):
+                S += rng.standard_normal(K) + delta * anomalous
+                log_lr = delta * S - t * delta**2 / 2  # per-stream oracle likelihood ratio
+                log_max = max(log_max, merger.merge_log(log_lr).log_merged_e_value)
+                if t <= 3:
+                    rejected_early |= log_max >= np.log(20.0)
+            early += rejected_early
+            late += log_max >= np.log(20.0)
+        assert early / n_reps <= 0.25
+        assert late / n_reps >= 0.85

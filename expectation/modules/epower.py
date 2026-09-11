@@ -67,7 +67,7 @@ class EPowerCalculator:
 
         return EPowerResult(
             e_power=float(e_power),
-            is_positive=e_power > 0,
+            is_positive=bool(e_power > 0),
             expected_e_value=float(expected_e_value),
             optimal_lambda=optimal_lambda,
             type=self.config.type,
