@@ -243,6 +243,196 @@ Pérez-Ortiz, Castro & Stoepker (2025) with pluggable streams and diagnostics (m
 C = implementation of Martinez-Taboada & Ramdas (2025) with generic Lipschitz certificates
 and a compact-support variant (modest).
 
+Example notebooks (rewritten in the repository's house style, all cells executed, zero
+errors). **Simulation methodology:** nothing the method is supposed to discover is
+hardcoded. Anomaly indicators are Bernoulli draws so counts are random; effect sizes come
+from distributions chosen on domain grounds; ordinal outcomes come from an ordered-probit
+latent mechanism; contaminated records are actually injected; correlated residuals are
+built from a common factor; change points are drawn. Horizons are fixed from domain
+reasoning and the outcome is reported whatever it is, with replications behind every
+detection claim.
+- `examples/imprecise-forecasters-upper-expectations.ipynb` — 12 sections: numeraire +
+  certificate, Wasserstein ball (latent shift 0.45 -> W1 0.473; 12/12 detected at rho=0.20,
+  0/12 at rho=0.60), distance lower bound, contamination with 3% corruption genuinely
+  injected (0/10 false audits on spec, 10/10 on a degraded process, median 92 records),
+  polytope against a regime blend redrawn every round plus two shocks - the mild one is
+  outside the hull yet correctly *not* claimed, since its KL predicts ~3294 rounds against
+  a 2000-round horizon - type-I on the set boundary (3/100), clinical non-inferiority
+  (6/6, median 162 patients), supplier audit (10/10, median 197 units), LLM release gate
+  (blocked at 343 responses, certified 0.30 judge points), bid-ask random walk (146
+  events), CHSH (155 trials, 0.032 nats/trial vs 93 predicted).
+- `examples/sparse-anomaly-global-null.ipynb` — 13 sections. The 50-world replication
+  overturned the original framing: both merges detect 48/50, and the arithmetic mean is
+  *earlier* in 25 worlds vs the sparse mixture's 13. The sparse mixture's real advantage
+  is +33 nats of median evidence and the localisation that comes with it. Also: e-BH,
+  a single-failed-stream case where the mean wins outright, the beta sweep against
+  `detection_boundary`, type-I (0.010 / 0.015 over 200 sessions), and five replicated
+  real-world monitors (neuroimaging K=20000 through clinical safety K=3000).
+- `examples/stein-score-only-goodness-of-fit.ipynb` — 8 sections: IMQ vs N(0,1) (0/10
+  false, 10/10 on a 0.4 shift, median 100 draws), standardised t(3), Wendland on the
+  double well (exact sampler 0/6, tamed ULA 6/6 median 260), betting-strategy comparison,
+  type-I (0.005 over 200 audits), two-factor residual validation (0/6 when the model
+  holds; 6/6 median 424 for a weak common factor and 400 for understated volatility),
+  Boltzmann trap at the wrong temperature, and a How-It-Works section stating the
+  conditional-null and mixture-weight blind spots.
+Notebooks use only library APIs plus data simulation; no new mathematics is defined in
+them. The README's sparse-merge bullet was corrected twice to match what the replications
+actually show (multiplicative evidence gain; comparable-to-slightly-later alarm times).
+
+A third notebook, `examples/commercial-playbook.ipynb`, is a 22-section handbook (149
+cells, 13 figures, executes in ~45 min). Part I foundations (capital-is-evidence with a
+measured peeking comparison; choosing the lens; duration planning; the three settings that
+decide validity). Part II adds **Defensive Forecasting** as a concept - Vovk, Takemura &
+Shafer's fixed-point construction, noted as collapsing to the intermediate value theorem
+in the binary case (Kakutani being needed in general) - in 13 lines, used as an online
+recalibration layer: it cuts a deployed churn model's calibration error from 0.138 to
+0.009 (a perfect model scores 0.007) while preserving ranking quality, with Skeptic's
+capital never rising above zero. Part III works ten commercial settings, each with the
+incumbent method **run and shown failing**, a sensitivity table and a runbook. Part IV
+covers two-speed alerting, dependence and failure modes.
+
+**A real library defect surfaced from writing it:** `SequentialTesting(test_type="variance")`
+rejects a TRUE null in 200/200 runs of pure N(0,1) noise, one- and two-sided, while the
+mean path on identical data sits at 0.005. This is SEQ-02 in the audit, now measured. Both
+`commercial-playbook.ipynb` (§2.1) and `toolkit-tour.ipynb` now run a null check across
+their lenses and label the variance path unusable; the insurance chapter keeps it
+shadow-only and builds its conclusion on a pre-declared variance bet plus a distance bound.
+
+Measured incumbent-method failures now carried in the text: SRE threshold alerting gives
+817 pages or zero detections with nothing usable between; monthly SLA tests reset each
+month give a compliant vendor a 55% false-alarm rate over two years; unadjusted
+per-creative t-tests produce 67.3% false discoveries; an exact-contract supplier null
+false-flags a compliant feed in 8/8 quarters on 3% bad scans; a fixed-baseline marketplace
+test false-alarms in 20/20 harmless runs; a 0.005-band drift returns chi-square p = 8e-11.
+Honest null results kept as findings: a 28-day media flight retires nothing, a 10%
+marketplace shock is outside the null yet unreachable in 4,000 rounds, a 0.75-visibility
+QRNG cannot be certified, and a Langevin step of 0.05 is detected only 2/5 times.
+
+Two further notebooks were added for onboarding and commercial use:
+- `examples/toolkit-tour.ipynb` — 19 sections covering every shipped tool in plain
+  commercial language: the four `SequentialTesting` metric types, the result object and
+  history table, the four staking rules (incl. `LOG_OPTIMAL`'s required setup call), all
+  five mixture martingales, both calibrator directions, `EPowerCalculator` as a duration
+  estimate, the Rust engine (50k tests x 80 steps at ~25M updates/sec), all six
+  multiple-testing methods incl. the `adjusted_` family, all six mergers side by side,
+  the adjusters, `KSampleSequentialTest`, `QuantileABTest` (p50 vs p95 on a tail
+  regression), a worked custom `SkepticStrategy`, `upperexp`, `stein`, and a **section 17
+  stating plainly what is not finished** (`confseq` labels vs behaviour, `parametric`,
+  `conformal`, the `e_holm` naming, the un-ported Rust sparse merge), plus a cheat sheet.
+- `examples/commercial-case-studies.ipynb` — three end-to-end decisions with runbooks:
+  a streaming service's onboarding experiment, a payments company's fraud monitoring at
+  20k merchants with 15 analysts, and a systematic desk's strategy-decay question. Three
+  traps are measured rather than asserted: stopping on significance gave a lift estimate
+  **2.7x the truth** (2.70x -> 1.07x with a 21-day floor and a post-novelty estimation
+  window); the sparse merger on correlated merchants false-alarmed **28% of the time
+  against a 5% budget** while the arithmetic mean stayed at 0-2%; and a raw evidence
+  threshold produced **280 notifications of which 239 later evaporated** vs 3 from
+  `adjusted_e_bh`. Case 3's headline is that one strategy's Sharpe decay needs ~24 years
+  of daily P&L, while its execution quality degrades detectably in ~1,750 fills (~0.3
+  trading days), and that understating the assumed variance turns a 5% error budget
+  into 14%.
+Four bugs were caught and fixed during their construction, each by checking the printed
+numbers rather than trusting the cell ran: a quantile test reporting `sample_size = 0`,
+an invented e-value stream that was not a fair game, a custom skeptic capped below its
+stopping time, and a guardrail simulation that claimed nothing fired while showing
+capital of 1e200.
+
 Not done / follow-ups: Rust port of the sparse mixture for the 300K-stream engine; larger-K
 Wasserstein support (K^2 LP variables); Wendland kernels for d > 3 use l = floor(d/2)+2 but
-positive-definiteness was not separately tested; example notebooks.
+positive-definiteness was not separately tested. NB1 takes ~11 min to execute end to end
+(polytope EM and Wasserstein LPs inside replication loops); trim the replication counts if
+that becomes a problem. The two new notebooks run in ~40s and ~18s respectively.
+
+---
+
+# examples/commercial-handbook.ipynb (2026-09-13)
+
+Status: DONE. 87 cells (39 code), 10 figures, executes clean in ~7.5 min, 1.58 MB.
+
+## Goal
+A production handbook: ten commercial settings, each teaching how to *use* a part of the
+library. Selection rule: anchor each case on capabilities the existing 17 notebooks
+under-use, and do not re-run domains already covered by `commercial-playbook` /
+`commercial-case-studies` / `sparse-anomaly` / `upperexp` / `stein` / `ksample`.
+
+## Per-section template (applied to all ten)
+`.1` domain and what the mistake costs -> `.2` designing the study (hypothesis + the
+null-class/filtration/clock/downstream-use contract table) -> `.3` assumptions stated
+explicitly, with "if false" -> `.4` data-generating mechanism -> `.5` which capabilities and
+why, with the rejected alternative -> `.6` build -> `.7` read the plots -> `.8` runbook.
+
+## The ten
+1. Marketplace unit economics - `confseq` + `boundaries` (radius rebuilt by hand; miscoverage measured).
+2. Card-network compliance - `boundaries.bernoulli_confidence_interval`, one-sided proportion e-test, `ksample` attribution.
+3. CDN p95 SLA - `quantiletest.QuantileABTest`, `orderstatistics`, inverted `double_stitching_bound`.
+4. Clearing-house margin - `GammaExponentialMixture` through `log_superMG(s, v)`, after the variance path fails its null check.
+5. Warranty reserving - `GammaPoissonMixture` + custom `SkepticStrategy`/`BettingProtocol`, exposure carried in the announcement.
+6. LLM bake-off - `SymmetryETest` x3 null classes, `EPowerCalculator` for lambda and for budget sizing.
+7. Model-risk governance - all five `PToECalibrator`s, `EToPCalibrator`, arithmetic-mean vs product merge.
+8. Experimentation platform - four `EProcessUpdater` strategies incl. `LogOptimalCombiner`, `optimize_lambda`.
+9. Credit-risk validation - `LikelihoodRatioEValue`, `UniversalEValue`, `stein`, `upperexp.ContaminationNull`.
+10. Telecom NOC - `par_seqtest`, `modules.adjusters`, global merge, `conformal` CUSUM + adaptive threshold.
+11. Closing map: tool-per-question table, capabilities left to their own notebooks, findings, five habits.
+
+Coverage: 23 of 28 source modules imported directly. Excluded on purpose:
+`parametric.ttest_universal` (incomplete - documented in 11.3), `ksample.bernoulli` and
+`conformal.conformal` (reached through their public wrappers), `utils.helper_functions`
+(Plotly; pointed at in 11.2).
+
+## Review
+
+Verified rather than asserted, in-notebook:
+- `SequentialTesting(test_type="variance")` rejects a TRUE null 200/200 (mean control 0.000).
+  Section 4 runs this check first and then routes around it via the `(s, v)` interface.
+  `commercial-playbook.ipynb` section 4 still reports this path's output as a working
+  detection - that section needs revisiting.
+- `ConfidenceSequence` radius reproduced from `boundaries.gamma_exponential_mixture_bound`
+  to 1e-12, confirming `boundary_type` is metadata on that path.
+- Both `modules.adjusters` satisfy the admissibility integral numerically (1.000, 0.999).
+- All five p-to-e calibrators satisfy E[f(U)] <= 1 over 500k uniforms.
+- **New finding:** the sign and Wilcoxon symmetry e-values are anti-conservative on tied
+  data with lambda < 0 - false-alarm rate 1.000 vs a 0.05 budget on identical vendors, where
+  Fisher is unaffected. 28% of Likert pairs are ties. Dropping ties restores 0.010. This is a
+  library-level caveat worth a docstring note in `hypothesistesting.SymmetryETest`.
+- **New finding:** `SequentialTesting(TestType.QUANTILE)` never populates `result.sample_size`.
+
+Non-rejections kept and used: a compliant chargeback portfolio that is still provably
+non-homogeneous across acquirers; a warranty book below its reserving basis; an LLM
+evaluation whose approved budget is ~9x short of what e-power says it needs; a carefree
+list naming 1 cell where e-BH names 5. Each drives a real decision in its runbook.
+
+Every claim about detection is replicated (50-300 runs) and reported as a detection rate
+plus median stopping time, with operating-characteristic ladders rather than single seeds.
+
+## Review addendum: capability-coverage pass (2026-09-13, after user review)
+
+User review found the handbook was demonstrating a minority of the library. Audit confirmed:
+52/154 public items used (34%), 3 dead imports, enums passed as string literals, and
+self-made plotting where `utils.helper_functions` exists.
+
+Result after the pass: **143/154 = 93%** (97% excluding `parametric`, which does not work),
+**0 dead imports**, 133 cells / 63 code / 16 figures, executes clean in ~13 min.
+The 5 remaining non-`parametric` items are internal math helpers (`log_beta`,
+`log_incomplete_beta`, `find_s_upper_bound`), not user-facing capabilities.
+
+Capabilities given a commercial home in this pass: full `boundaries` family (S4.8), all five
+mergers + `create_merger`/`gambling_system` (S7.9), the four combiner objects +
+`EPowerType` modes (S8.8), `WassersteinDistanceSequence`/`PolytopeNull`/`growth_rate`
+(S9.10-9.11), `WendlandSteinKernel`/`CallableScoreTarget`/`BoltzmannTarget` (S9.12), the
+`EValue` ABC as a VaR backtest (S9.13), `SparseMixtureMerger` + diagnostics (S10.9),
+`ConformalEValue` + pseudomartingales + `EfficiencyAnalyzer` (S10.10), the typed
+`par_seqtest` enums + adjuster factory (S10.11), `OrderStatisticInterface` via a histogram
+implementation (S3.8), effect-size `ksample` + `DivergenceType` + `BernoulliRIPrCalculator`
+(S2.8), `BoundaryConfig` (S2.9), the Plotly dashboards (S2.9), and a new Section 11
+(QRNG certification) for `CHSHLocalRealismNull`. Map renumbered to Section 12.
+
+Two further library defects found and documented (S12.3), both by pointing a tool at a
+known answer:
+- `EmpiricalBernsteinConfidenceSequence` returns `[68.7, 10.0]` for a true mean of 7.0 on
+  `[0,10]` data - bounds rescaled by the support width on output. State is correct.
+- `utils.plot_sequential_comparison_plotly` raises `TypeError` for every input:
+  `helper_functions.py:877` indexes `colors["grid"]` after `colors` was rebound to a list.
+  The other three plotters are unaffected.
+
+Neither is fixed here (notebooks demonstrate, they do not patch). Both are candidates for a
+follow-up alongside the `TestType.VARIANCE` defect.
